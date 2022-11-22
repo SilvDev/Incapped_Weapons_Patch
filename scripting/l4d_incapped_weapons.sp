@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.14"
+#define PLUGIN_VERSION 		"1.15"
 
 /*=======================================================================================
 	Plugin Info:
@@ -31,6 +31,9 @@
 
 ========================================================================================
 	Change Log:
+
+1.15 (22-Nov-2022)
+	- Fixed cvar "l4d_incapped_weapons_throw" not preventing standing up animation when plugin is late loaded.
 
 1.14 (12-Nov-2022)
 	- Added cvar "l4d_incapped_weapons_throw" to optionally prevent the standing up animation when throwing grenades.
@@ -267,7 +270,7 @@ public void OnPluginStart()
 	} else {
 		g_hCvarRest =	CreateConVar(	"l4d_incapped_weapons_restrict",		"8,12",					"Empty string to allow all. Prevent these weapon/item IDs from being used while incapped. See plugin post for details.", CVAR_FLAGS);
 	}
-	g_hCvarThrow =	CreateConVar(		"l4d_incapped_weapons_throw",			"0",					"0=Block throwing grenade animation to prevent standing up during throw (requires Left4DHooks plugin). 1=Allow throwing animation. ", CVAR_FLAGS);
+	g_hCvarThrow =	CreateConVar(		"l4d_incapped_weapons_throw",			"0",					"0=Block throwing grenade animation to prevent standing up during throw (requires Left4DHooks plugin). 1=Allow throwing animation.", CVAR_FLAGS);
 
 	CreateConVar(						"l4d_incapped_weapons_version",			PLUGIN_VERSION,			"Incapped Weapons plugin version.", FCVAR_NOTIFY|FCVAR_DONTRECORD);
 	AutoExecConfig(true,				"l4d_incapped_weapons");
@@ -346,6 +349,8 @@ public void OnPluginStart()
 	// ====================================================================================================
 	if( g_bLateLoad )
 	{
+		g_bLeft4DHooks = LibraryExists("left4dhooks");
+
 		for( int i = 1; i <= MaxClients; i++ )
 		{
 			if( IsClientInGame(i) && GetClientTeam(i) == 2 && IsPlayerAlive(i) && GetEntProp(i, Prop_Send, "m_isIncapacitated", 1) && GetEntProp(i, Prop_Send, "m_isHangingFromLedge", 1) == 0 )
