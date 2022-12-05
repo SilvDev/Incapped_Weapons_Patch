@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.15"
+#define PLUGIN_VERSION 		"1.16"
 
 /*=======================================================================================
 	Plugin Info:
@@ -32,12 +32,16 @@
 ========================================================================================
 	Change Log:
 
+1.16 (05-Dec-2022)
+	- Added feature to allow Pills and Adrenaline to be used while incapped. Requires the "Left 4 DHooks" plugin.
+	- Added cvars "l4d_incapped_weapons_heal_adren" and "l4d_incapped_weapons_heal_pills" to control healing amount while incapped.
+
 1.15 (22-Nov-2022)
-	- Fixed cvar "l4d_incapped_weapons_throw" not preventing standing up animation when plugin is late loaded.
+	- Fixed cvar "l4d_incapped_weapons_throw" not preventing standing up animation when plugin is late loaded. Thanks to "TBK Duy" for reporting.
 
 1.14 (12-Nov-2022)
 	- Added cvar "l4d_incapped_weapons_throw" to optionally prevent the standing up animation when throwing grenades.
-	- Now optionally uses "Left4DHooks" plugin to prevent standing up animation when throwing grenades.
+	- Now optionally uses "Left 4 DHooks" plugin to prevent standing up animation when throwing grenades.
 
 1.13a (09-Jul-2021)
 	- L4D2: Fixed GameData file from the "2.2.2.0" update.
@@ -106,9 +110,10 @@
 #define CVAR_FLAGS			FCVAR_NOTIFY
 #define GAMEDATA			"l4d_incapped_weapons"
 
-ConVar g_hCvarAllow, g_hCvarMPGameMode, g_hCvarModes, g_hCvarModesOff, g_hCvarModesTog, g_hCvarMelee, g_hCvarPist, g_hCvarRest, g_hCvarThrow;
-bool g_bCvarAllow, g_bMapStarted, g_bLeft4Dead2, g_bLeft4DHooks, g_bLateLoad, g_bCvarThrow;
-int g_iCvarPist, g_iCvarMelee;
+
+ConVar g_hCvarAllow, g_hCvarMPGameMode, g_hCvarhealthThresh, g_hCvarIncapHealth, g_hCvarHealAdren, g_hCvarHealPills, g_hCvarModes, g_hCvarModesOff, g_hCvarModesTog, g_hCvarMelee, g_hCvarPist, g_hCvarRest, g_hCvarThrow;
+bool g_bCvarAllow, g_bMapStarted, g_bLeft4Dead2, g_bLeft4DHooks, g_bLateLoad, g_bBlockChange, g_bCvarThrow;
+int g_iCvarhealthThresh, g_iCvarIncapHealth, g_iCvarHealAdren, g_iCvarHealPills, g_iCvarPist, g_iCvarMelee;
 
 ArrayList g_ByteSaved_Deploy, g_ByteSaved_OnIncap;
 Address g_Address_Deploy, g_Address_OnIncap;
@@ -132,6 +137,7 @@ typeset AnimHookCallback
 
 native bool AnimHookEnable(int client, AnimHookCallback callback, AnimHookCallback callbackPost = INVALID_FUNCTION);
 native bool AnimHookDisable(int client, AnimHookCallback callback, AnimHookCallback callbackPost = INVALID_FUNCTION);
+native void L4D2_UseAdrenaline(int client, float fTime = 15.0, bool heal = true);
 
 
 
@@ -161,6 +167,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 
 	MarkNativeAsOptional("AnimHookEnable");
 	MarkNativeAsOptional("AnimHookDisable");
+	MarkNativeAsOptional("L4D2_UseAdrenaline");
 
 	g_bLateLoad = late;
 	return APLRes_Success;
@@ -202,7 +209,9 @@ public void OnPluginStart()
 	Handle hGameData = LoadGameConfigFile(GAMEDATA);
 	if( hGameData == null ) SetFailState("Failed to load \"%s.txt\" gamedata.", GAMEDATA);
 
-	// Patch usage
+
+
+	// Patch deploy
 	int iOffset = GameConfGetOffset(hGameData, "CanDeploy_Offset");
 	if( iOffset == -1 ) SetFailState("Failed to load \"CanDeploy_Offset\" offset.");
 
@@ -223,14 +232,13 @@ public void OnPluginStart()
 		g_ByteSaved_Deploy.Push(LoadFromAddress(g_Address_Deploy + view_as<Address>(i), NumberType_Int8));
 	}
 
-	if( g_ByteSaved_Deploy.Get(0) != iByteMatch ) SetFailState("Failed to load 'Deploy', byte mis-match @ %d (0x%02X != 0x%02X)", iOffset, g_ByteSaved_Deploy.Get(0), iByteMatch);
+	if( g_ByteSaved_Deploy.Get(0) != iByteMatch ) SetFailState("Failed to load 'CanDeploy', byte mis-match @ %d (0x%02X != 0x%02X)", iOffset, g_ByteSaved_Deploy.Get(0), iByteMatch);
+
+
 
 	// Patch melee
 	if( g_bLeft4Dead2 )
 	{
-		g_Address_OnIncap = GameConfGetAddress(hGameData, "OnIncapacitatedAsSurvivor");
-		if( !g_Address_OnIncap ) SetFailState("Failed to load \"OnIncapacitatedAsSurvivor\" address.");
-
 		iOffset = GameConfGetOffset(hGameData, "OnIncap_Offset");
 		if( iOffset == -1 ) SetFailState("Failed to load \"OnIncap_Offset\" offset.");
 
@@ -239,6 +247,9 @@ public void OnPluginStart()
 
 		iByteCount = GameConfGetOffset(hGameData, "OnIncap_Count");
 		if( iByteCount == -1 ) SetFailState("Failed to load \"OnIncap_Count\" count.");
+
+		g_Address_OnIncap = GameConfGetAddress(hGameData, "OnIncapacitatedAsSurvivor");
+		if( !g_Address_OnIncap ) SetFailState("Failed to load \"OnIncapacitatedAsSurvivor\" address.");
 
 		g_Address_OnIncap += view_as<Address>(iOffset);
 		g_ByteSaved_OnIncap = new ArrayList();
@@ -258,34 +269,46 @@ public void OnPluginStart()
 	// ====================================================================================================
 	// CVARS
 	// ====================================================================================================
-	g_hCvarAllow =		CreateConVar(	"l4d_incapped_weapons_allow",			"1",					"0=Plugin off, 1=Plugin on.", CVAR_FLAGS );
-	g_hCvarModes =		CreateConVar(	"l4d_incapped_weapons_modes",			"",						"Turn on the plugin in these game modes, separate by commas (no spaces). (Empty = all).", CVAR_FLAGS );
-	g_hCvarModesOff =	CreateConVar(	"l4d_incapped_weapons_modes_off",		"",						"Turn off the plugin in these game modes, separate by commas (no spaces). (Empty = none).", CVAR_FLAGS );
-	g_hCvarModesTog =	CreateConVar(	"l4d_incapped_weapons_modes_tog",		"0",					"Turn on the plugin in these game modes. 0=All, 1=Coop, 2=Survival, 4=Versus, 8=Scavenge. Add numbers together.", CVAR_FLAGS );
+	g_hCvarAllow =			CreateConVar(	"l4d_incapped_weapons_allow",			"1",					"0=Plugin off, 1=Plugin on.", CVAR_FLAGS );
+	g_hCvarModes =			CreateConVar(	"l4d_incapped_weapons_modes",			"",						"Turn on the plugin in these game modes, separate by commas (no spaces). (Empty = all).", CVAR_FLAGS );
+	g_hCvarModesOff =		CreateConVar(	"l4d_incapped_weapons_modes_off",		"",						"Turn off the plugin in these game modes, separate by commas (no spaces). (Empty = none).", CVAR_FLAGS );
+	g_hCvarModesTog =		CreateConVar(	"l4d_incapped_weapons_modes_tog",		"0",					"Turn on the plugin in these game modes. 0=All, 1=Coop, 2=Survival, 4=Versus, 8=Scavenge. Add numbers together.", CVAR_FLAGS );
+
 	if( g_bLeft4Dead2 )
 	{
-		g_hCvarMelee =	CreateConVar(	"l4d_incapped_weapons_melee",			"0",					"L4D2 only: 0=No friendly fire. 1=Allow friendly fire. When using Melee weapons should they hurt other Survivors.", CVAR_FLAGS);
-		g_hCvarPist =	CreateConVar(	"l4d_incapped_weapons_pistol",			"0",					"L4D2 only: 0=Don't give pistol (allows Melee weapons to be used). 1=Give pistol (game default).", CVAR_FLAGS);
-		g_hCvarRest =	CreateConVar(	"l4d_incapped_weapons_restrict",		"12,15,23,24,30,31",	"Empty string to allow all. Prevent these weapon/item IDs from being used while incapped. See plugin post for details.", CVAR_FLAGS);
+		g_hCvarHealAdren =	CreateConVar(	"l4d_incapped_weapons_heal_adren",		"25",					"L4D2 only: How much to heal a player when they use Adrenaline whilst incapped.", CVAR_FLAGS);
+		g_hCvarMelee =		CreateConVar(	"l4d_incapped_weapons_melee",			"0",					"L4D2 only: 0=No friendly fire. 1=Allow friendly fire. When using Melee weapons should they hurt other Survivors.", CVAR_FLAGS);
+		g_hCvarPist =		CreateConVar(	"l4d_incapped_weapons_pistol",			"0",					"L4D2 only: 0=Don't give pistol (allows Melee weapons to be used). 1=Give pistol (game default).", CVAR_FLAGS);
+		g_hCvarRest =		CreateConVar(	"l4d_incapped_weapons_restrict",		"12,24,30,31",			"Empty string to allow all. Prevent these weapon/item IDs from being used while incapped. See plugin post for details.", CVAR_FLAGS);
 	} else {
-		g_hCvarRest =	CreateConVar(	"l4d_incapped_weapons_restrict",		"8,12",					"Empty string to allow all. Prevent these weapon/item IDs from being used while incapped. See plugin post for details.", CVAR_FLAGS);
+		g_hCvarRest =		CreateConVar(	"l4d_incapped_weapons_restrict",		"8",					"Empty string to allow all. Prevent these weapon/item IDs from being used while incapped. See plugin post for details.", CVAR_FLAGS);
 	}
-	g_hCvarThrow =	CreateConVar(		"l4d_incapped_weapons_throw",			"0",					"0=Block throwing grenade animation to prevent standing up during throw (requires Left4DHooks plugin). 1=Allow throwing animation.", CVAR_FLAGS);
 
-	CreateConVar(						"l4d_incapped_weapons_version",			PLUGIN_VERSION,			"Incapped Weapons plugin version.", FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	AutoExecConfig(true,				"l4d_incapped_weapons");
+	g_hCvarHealPills =		CreateConVar(	"l4d_incapped_weapons_heal_pills",		"50",					"How much to heal a player when they use Adrenaline whilst incapped.", CVAR_FLAGS);
+	g_hCvarThrow =			CreateConVar(	"l4d_incapped_weapons_throw",			"0",					"0=Block grenade throwing animation to prevent standing up during throw (requires Left4DHooks plugin). 1=Allow throwing animation.", CVAR_FLAGS);
 
+	CreateConVar(							"l4d_incapped_weapons_version",			PLUGIN_VERSION,			"Incapped Weapons plugin version.", FCVAR_NOTIFY|FCVAR_DONTRECORD);
+	AutoExecConfig(true,					"l4d_incapped_weapons");
+
+	g_hCvarhealthThresh = FindConVar("pain_pills_health_threshold");
+	g_hCvarIncapHealth = FindConVar("survivor_incap_health");
 	g_hCvarMPGameMode = FindConVar("mp_gamemode");
+
 	g_hCvarMPGameMode.AddChangeHook(ConVarChanged_Allow);
 	g_hCvarModes.AddChangeHook(ConVarChanged_Allow);
 	g_hCvarModesOff.AddChangeHook(ConVarChanged_Allow);
 	g_hCvarModesTog.AddChangeHook(ConVarChanged_Allow);
 	g_hCvarAllow.AddChangeHook(ConVarChanged_Allow);
+
 	if( g_bLeft4Dead2 )
 	{
+		g_hCvarHealAdren.AddChangeHook(ConVarChanged_Cvars);
 		g_hCvarPist.AddChangeHook(ConVarChanged_Cvars);
 		g_hCvarMelee.AddChangeHook(ConVarChanged_Cvars);
 	}
+	g_hCvarHealPills.AddChangeHook(ConVarChanged_Cvars);
+	g_hCvarhealthThresh.AddChangeHook(ConVarChanged_Cvars);
+	g_hCvarIncapHealth.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarRest.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarThrow.AddChangeHook(ConVarChanged_Cvars);
 
@@ -349,6 +372,8 @@ public void OnPluginStart()
 	// ====================================================================================================
 	if( g_bLateLoad )
 	{
+		GetCvars();
+
 		g_bLeft4DHooks = LibraryExists("left4dhooks");
 
 		for( int i = 1; i <= MaxClients; i++ )
@@ -357,8 +382,14 @@ public void OnPluginStart()
 			{
 				SDKHook(i, SDKHook_WeaponCanSwitchTo, CanSwitchTo);
 
-				if( g_bLeft4DHooks && !g_bCvarThrow && !IsFakeClient(i) )
+				if( g_bLeft4DHooks && (!g_bCvarThrow || g_iCvarHealAdren || g_iCvarHealPills) && !IsFakeClient(i) )
 				{
+					if( g_iCvarHealAdren || g_iCvarHealPills )
+					{
+						SDKHook(i, SDKHook_PreThink, OnThinkPre);
+						SDKHook(i, SDKHook_PostThinkPost, OnThinkPost);
+					}
+
 					AnimHookEnable(i, OnAnimPre);
 				}
 			}
@@ -408,6 +439,13 @@ void ConVarChanged_Cvars(Handle convar, const char[] oldValue, const char[] newV
 
 void GetCvars()
 {
+	if( g_bBlockChange ) return;
+
+	if( g_bLeft4Dead2 )
+		g_iCvarHealAdren = g_hCvarHealAdren.IntValue;
+	g_iCvarHealPills = g_hCvarHealPills.IntValue;
+	g_iCvarhealthThresh = g_hCvarhealthThresh.IntValue;
+	g_iCvarIncapHealth = g_hCvarIncapHealth.IntValue;
 	g_bCvarThrow = g_hCvarThrow.BoolValue;
 
 	if( g_bLeft4Dead2 )
@@ -551,12 +589,30 @@ void OnGamemode(const char[] output, int caller, int activator, float delay)
 
 
 // ====================================================================================================
+//					THINK - can use pills/adrenaline
+// ====================================================================================================
+void OnThinkPre(int client)
+{
+	g_bBlockChange = true;
+	g_hCvarhealthThresh.IntValue = 9999;
+}
+
+void OnThinkPost(int client)
+{
+	g_hCvarhealthThresh.IntValue = g_iCvarhealthThresh;
+	g_bBlockChange = false;
+}
+
+
+
+// ====================================================================================================
 //					EVENTS
 // ====================================================================================================
 void HookEvents()
 {
 	HookEvent("player_incapacitated",		Event_Incapped);
 	HookEvent("revive_success",				Event_ReviveSuccess);
+	HookEvent("player_spawn",				Event_PlayerSpawn);
 	HookEvent("player_death",				Event_PlayerDeath);
 	HookEvent("player_team",				Event_PlayerDeath);
 	HookEvent("round_start",				Event_RoundStart,	EventHookMode_PostNoCopy);
@@ -565,9 +621,10 @@ void HookEvents()
 void UnhookEvents()
 {
 	UnhookEvent("player_incapacitated",		Event_Incapped);
+	UnhookEvent("revive_success",			Event_ReviveSuccess);
+	UnhookEvent("player_spawn",				Event_PlayerSpawn);
 	UnhookEvent("player_death",				Event_PlayerDeath);
 	UnhookEvent("player_team",				Event_PlayerDeath);
-	UnhookEvent("revive_success",			Event_ReviveSuccess);
 	UnhookEvent("round_start",				Event_RoundStart,	EventHookMode_PostNoCopy);
 }
 
@@ -577,8 +634,14 @@ void Event_Incapped(Event event, const char[] name, bool dontBroadcast)
 	if( client && GetClientTeam(client) == 2 )
 	{
 		// Prevent standing up animation when throwing grenades
-		if( g_bLeft4DHooks && !g_bCvarThrow && !IsFakeClient(client) )
+		if( g_bLeft4DHooks && (!g_bCvarThrow || g_iCvarHealAdren || g_iCvarHealPills) && !IsFakeClient(client) )
 		{
+			if( g_iCvarHealAdren || g_iCvarHealPills )
+			{
+				SDKHook(client, SDKHook_PreThink, OnThinkPre);
+				SDKHook(client, SDKHook_PostThinkPost, OnThinkPost);
+			}
+
 			AnimHookEnable(client, OnAnimPre);
 		}
 
@@ -676,6 +739,17 @@ Action OnTakeDamage(int victim, int &attacker, int &inflictor, float &damage, in
 	return Plugin_Continue;
 }
 
+void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast)
+{
+	int client = GetClientOfUserId(event.GetInt("userid"));
+	if( client )
+	{
+		SDKUnhook(client, SDKHook_PreThink, OnThinkPre);
+		SDKUnhook(client, SDKHook_PostThinkPost, OnThinkPost);
+		SDKUnhook(client, SDKHook_WeaponCanSwitchTo, CanSwitchTo);
+	}
+}
+
 void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
 {
 	int client = GetClientOfUserId(event.GetInt("userid"));
@@ -691,6 +765,8 @@ void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
 			AnimHookDisable(client, OnAnimPre);
 		}
 
+		SDKUnhook(client, SDKHook_PreThink, OnThinkPre);
+		SDKUnhook(client, SDKHook_PostThinkPost, OnThinkPost);
 		SDKUnhook(client, SDKHook_WeaponCanSwitchTo, CanSwitchTo);
 	}
 }
@@ -710,6 +786,8 @@ void Event_ReviveSuccess(Event event, const char[] name, bool dontBroadcast)
 			AnimHookDisable(client, OnAnimPre);
 		}
 
+		SDKUnhook(client, SDKHook_Think, OnThinkPre);
+		SDKUnhook(client, SDKHook_PostThinkPost, OnThinkPost);
 		SDKUnhook(client, SDKHook_WeaponCanSwitchTo, CanSwitchTo);
 	}
 }
@@ -738,6 +816,7 @@ void ResetPlugin()
 	}
 }
 
+// Restrict certain weapons
 Action CanSwitchTo(int client, int weapon)
 {
 	static char classname[32];
@@ -752,18 +831,40 @@ Action CanSwitchTo(int client, int weapon)
 }
 
 // Uses "Activity" numbers, which means 1 animation number is the same for all Survivors.
+// Detect pills/adrenaline use to heal players and detect grenade throwing
 Action OnAnimPre(int client, int &anim)
 {
 	if( g_bLeft4Dead2 )
 	{
 		switch( anim )
 		{
+			// "ACT_TERROR_USE_PILLS" "552"
+			case 552:
+			{
+				if( g_iCvarHealPills )
+				{
+					HealSetup(client, true);
+				}
+			}
+
+			// "ACT_TERROR_USE_ADRENALINE" "553"
+			case 553:
+			{
+				if( g_iCvarHealAdren )
+				{
+					HealSetup(client, false);
+				}
+			}
+
 			// case L4D2_ACT_PRIMARYATTACK_GREN1_IDLE, L4D2_ACT_PRIMARYATTACK_GREN2_IDLE:
 			case 997, 998:
 			{
 				// anim = L4D2_ACT_IDLE_INCAP_PISTOL;
-				anim = 700;
-				return Plugin_Changed;
+				if( g_bCvarThrow )
+				{
+					anim = 700;
+					return Plugin_Changed;
+				}
 			}
 		}
 	}
@@ -771,17 +872,105 @@ Action OnAnimPre(int client, int &anim)
 	{
 		switch( anim )
 		{
+			// "ACT_TERROR_USE_PILLS" "1088"
+			case 1088:
+			{
+				if( g_iCvarHealPills )
+				{
+					HealSetup(client, true);
+				}
+			}
+
 			// case L4D1_ACT_PRIMARYATTACK_GREN1_IDLE, L4D1_ACT_PRIMARYATTACK_GREN2_IDLE:
 			case 1510, 1511:
 			{
 				// anim = L4D1_ACT_IDLE_INCAP_PISTOL;
-				anim = 1201;
-				return Plugin_Changed;
+				if( g_bCvarThrow )
+				{
+					anim = 1201;
+					return Plugin_Changed;
+				}
 			}
 		}
 	}
 
 	return Plugin_Continue;
+}
+
+// Heal player with pills/adrenaline
+void HealSetup(int client, bool pills)
+{
+	// Timeout to prevent spamming and fast animation
+	int weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
+	if( weapon != 1 )
+	{
+		weapon = EntIndexToEntRef(weapon);
+		SetEntPropFloat(weapon, Prop_Send, "m_flNextPrimaryAttack", GetGameTime() + 1.0);
+	}
+
+	// Heal when animation is complete and delete weapon
+	DataPack dPack = new DataPack();
+
+	if( pills )
+		CreateTimer(0.5, TimerPills, dPack);
+	else
+		CreateTimer(0.8, TimerAdren, dPack);
+
+	dPack.WriteCell(GetClientUserId(client));
+	dPack.WriteCell(weapon);
+}
+
+Action TimerAdren(Handle timer, DataPack dPack)
+{
+	HealPlayer(dPack, false);
+	return Plugin_Continue;
+}
+
+Action TimerPills(Handle timer, DataPack dPack)
+{
+	HealPlayer(dPack, true);
+	return Plugin_Continue;
+}
+
+void HealPlayer(DataPack dPack, bool pills)
+{
+	dPack.Reset();
+
+	int userid = dPack.ReadCell();
+	int weapon = dPack.ReadCell();
+
+	delete dPack;
+
+	// Validate client
+	int client = GetClientOfUserId(userid);
+	if( client && IsClientInGame(client) && GetEntProp(client, Prop_Send, "m_isIncapacitated", 1) )
+	{
+		// Delete pills/adrenaline
+		if( EntRefToEntIndex(weapon) != INVALID_ENT_REFERENCE )
+		{
+			RemovePlayerItem(client, weapon);
+			RemoveEntity(weapon);
+		}
+
+		// Heal player
+		int health = GetClientHealth(client);
+		health += (pills ? g_iCvarHealPills : g_iCvarHealAdren);
+		if( health > g_iCvarIncapHealth ) health = g_iCvarIncapHealth;
+		SetEntityHealth(client, health);
+
+		// Fire event
+		if( g_bLeft4Dead2 && pills == false )
+		{
+			// This fires the event and creates the Adrenaline effects
+			L4D2_UseAdrenaline(client, 15.0, false);
+		}
+		else
+		{
+			Event hEvent = CreateEvent("pills_used");
+			hEvent.SetInt("userid", userid);
+			hEvent.Fire();
+		}
+	}
 }
 
 
