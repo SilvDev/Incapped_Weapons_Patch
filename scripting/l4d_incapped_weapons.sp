@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.18"
+#define PLUGIN_VERSION 		"1.19"
 
 /*=======================================================================================
 	Plugin Info:
@@ -31,6 +31,9 @@
 
 ========================================================================================
 	Change Log:
+
+1.19 (09-Dec-2022)
+	- Forgot to remove debug messages printing to chat. Thanks to "NoroHime" for reporting.
 
 1.18 (06-Dec-2022)
 	- Added extra checks when using Pills and Adrenaline.
@@ -756,7 +759,6 @@ Action OnTakeDamage(int victim, int &attacker, int &inflictor, float &damage, in
 
 			if( strcmp(classname[7], "melee") == 0 )
 			{
-			PrintToChatAll("BLOCK MELEE %d", inflictor);
 				damage = 0.0;
 				return Plugin_Changed;
 			}
