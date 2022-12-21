@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.20"
+#define PLUGIN_VERSION 		"1.21"
 
 /*=======================================================================================
 	Plugin Info:
@@ -31,6 +31,12 @@
 
 ========================================================================================
 	Change Log:
+
+1.21 (21-Dec-2022)
+	- Added cvars "l4d_incapped_weapons_delay_pills" and "l4d_incapped_weapons_delay_adren" to set a delay before reviving. Requested by "BystanderZK".
+	- Added cvar "l4d_incapped_weapons_delay_text" to optionally display a hint when using a delayed revive.
+	- Added cvar "l4d_incapped_weapons_heal_text" to display a hint about using pills or adrenaline when incapacitated.
+	- Added optional translations support for delayed revive.
 
 1.20 (12-Dec-2022)
 	- Added cvar "l4d_incapped_weapons_heal_revive" to control if players should revive into black and white status. Requested by "BystanderZK".
@@ -131,11 +137,19 @@
 #define PARTICLE_FUSE		"weapon_pipebomb_fuse"
 #define PARTICLE_LIGHT		"weapon_pipebomb_blinking_light"
 
+#define TIMER_REVIVE			0.2		// How often the timer ticks for delayed revive
+#define HEAL_ANIM_ADREN			1.3		// How long the healing animation lasts before applying the heal
+#define HEAL_ANIM_PILLS			0.6		// How long the healing animation lasts before applying the heal
+#define DELAY_HINT				2.0		// Delay incapacitated event hint message
 
-ConVar g_hCvarAllow, g_hCvarMPGameMode, g_hCvarMaxIncap, g_hCvarhealthThresh, g_hCvarIncapHealth, g_hCvarHealAdren, g_hCvarHealPills, g_hCvarHealRevive, g_hCvarModes, g_hCvarModesOff, g_hCvarModesTog, g_hCvarMelee, g_hCvarPist, g_hCvarRest, g_hCvarThrow;
-bool g_bCvarAllow, g_bMapStarted, g_bLeft4Dead2, g_bLeft4DHooks, g_bHeartbeat, g_bGrenadeFix, g_bLateLoad, g_bBlockChange, g_bCvarThrow;
-int g_iCvarhealthThresh, g_iCvarMaxIncap, g_iCvarIncapHealth, g_iCvarHealAdren, g_iCvarHealPills, g_iCvarHealRevive, g_iCvarPist, g_iCvarMelee;
-Handle g_hTimers[MAXPLAYERS+1];
+
+ConVar g_hCvarAllow, g_hCvarMPGameMode, g_hCvarMaxIncap, g_hCvarhealthThresh, g_hCvarIncapHealth, g_hCvarDelayAdren, g_hCvarDelayPills, g_hCvarDelayText, g_hCvarHealAdren, g_hCvarHealPills,
+	g_hCvarHealRevive, g_hCvarHealText, g_hCvarModes, g_hCvarModesOff, g_hCvarModesTog, g_hCvarMelee, g_hCvarPist, g_hCvarRest, g_hCvarThrow;
+bool g_bTranslations, g_bMapStarted, g_bLeft4Dead2, g_bLeft4DHooks, g_bHeartbeat, g_bGrenadeFix, g_bLateLoad, g_bBlockChange, g_bCvarAllow, g_bCvarThrow;
+int g_iCvarDelayText, g_iCvarhealthThresh, g_iCvarMaxIncap, g_iCvarIncapHealth, g_iCvarHealAdren, g_iCvarHealPills, g_iCvarHealText, g_iCvarHealRevive, g_iCvarPist, g_iCvarMelee, g_iHint[MAXPLAYERS+1];
+float g_fCvarDelayAdren, g_fCvarDelayPills, g_fReviveTimer[MAXPLAYERS+1];
+Handle g_hTimerUseHealth[MAXPLAYERS+1];
+Handle g_hTimerRevive[MAXPLAYERS+1];
 bool g_bUsePills[MAXPLAYERS+1];
 
 ArrayList g_ByteSaved_Deploy, g_ByteSaved_OnIncap;
@@ -315,9 +329,20 @@ public void OnPluginStart()
 	g_hCvarModesOff =		CreateConVar(	"l4d_incapped_weapons_modes_off",		"",						"Turn off the plugin in these game modes, separate by commas (no spaces). (Empty = none).", CVAR_FLAGS );
 	g_hCvarModesTog =		CreateConVar(	"l4d_incapped_weapons_modes_tog",		"0",					"Turn on the plugin in these game modes. 0=All, 1=Coop, 2=Survival, 4=Versus, 8=Scavenge. Add numbers together.", CVAR_FLAGS );
 
+
+	if( g_bLeft4Dead2 )
+		g_hCvarDelayAdren =	CreateConVar(	"l4d_incapped_weapons_delay_adren",		"5.0",					"L4D2 only: 0.0=Off. How many seconds a player must wait after using Adrenaline to be revived.", CVAR_FLAGS);
+	g_hCvarDelayPills =		CreateConVar(	"l4d_incapped_weapons_delay_pills",		"5.0",					"0.0=Off. How many seconds a player must wait after using Pills to be revived.", CVAR_FLAGS);
+	g_hCvarDelayText =		CreateConVar(	"l4d_incapped_weapons_delay_text",		"2",					"0=Off. 1=Print to chat. 2=Print to hint box. Display to player how long until they are revived, when using a _delay cvar.", CVAR_FLAGS);
+
+	if( g_bLeft4Dead2 )
+		g_hCvarHealAdren =	CreateConVar(	"l4d_incapped_weapons_heal_adren",		"50",					"L4D2 only: -1=Revive player. 0=Off. How much to heal a player when they use Adrenaline whilst incapped.", CVAR_FLAGS);
+	g_hCvarHealPills =		CreateConVar(	"l4d_incapped_weapons_heal_pills",		"50",					"-1=Revive player. 0=Off. How much to heal a player when they use Pain Pills whilst incapped.", CVAR_FLAGS);
+	g_hCvarHealRevive =		CreateConVar(	"l4d_incapped_weapons_heal_revive",		"0",					"0=Off. Should player enter black and white status when reviving using: 1=Pills. 2=Adrenaline. 3=Both.", CVAR_FLAGS);
+	g_hCvarHealText =		CreateConVar(	"l4d_incapped_weapons_heal_text",		"1",					"0=Off. 1=Print to chat. 2=Print to hint box. Print a message when incapacitated that Pills/Adrenaline can be used to heal/revive.", CVAR_FLAGS);
+
 	if( g_bLeft4Dead2 )
 	{
-		g_hCvarHealAdren =	CreateConVar(	"l4d_incapped_weapons_heal_adren",		"25",					"L4D2 only: -1=Revive player. 0=Off. How much to heal a player when they use Adrenaline whilst incapped.", CVAR_FLAGS);
 		g_hCvarMelee =		CreateConVar(	"l4d_incapped_weapons_melee",			"0",					"L4D2 only: 0=No friendly fire. 1=Allow friendly fire. When using Melee weapons should they hurt other Survivors.", CVAR_FLAGS);
 		g_hCvarPist =		CreateConVar(	"l4d_incapped_weapons_pistol",			"0",					"L4D2 only: 0=Don't give pistol (allows Melee weapons to be used). 1=Give pistol (game default).", CVAR_FLAGS);
 		g_hCvarRest =		CreateConVar(	"l4d_incapped_weapons_restrict",		"12,24,30,31",			"Empty string to allow all. Prevent these weapon/item IDs from being used while incapped. See plugin post for details.", CVAR_FLAGS);
@@ -325,8 +350,6 @@ public void OnPluginStart()
 		g_hCvarRest =		CreateConVar(	"l4d_incapped_weapons_restrict",		"8",					"Empty string to allow all. Prevent these weapon/item IDs from being used while incapped. See plugin post for details.", CVAR_FLAGS);
 	}
 
-	g_hCvarHealRevive =		CreateConVar(	"l4d_incapped_weapons_heal_revive",		"0",					"0=Off. Should player enter black and white status when reviving using: 1=Pills. 2=Adrenaline. 3=Both.", CVAR_FLAGS);
-	g_hCvarHealPills =		CreateConVar(	"l4d_incapped_weapons_heal_pills",		"50",					"-1=Revive player. 0=Off. How much to heal a player when they use Pain Pills whilst incapped.", CVAR_FLAGS);
 	g_hCvarThrow =			CreateConVar(	"l4d_incapped_weapons_throw",			"0",					"0=Block grenade throwing animation to prevent standing up during throw (requires Left4DHooks plugin). 1=Allow throwing animation.", CVAR_FLAGS);
 
 	CreateConVar(							"l4d_incapped_weapons_version",			PLUGIN_VERSION,			"Incapped Weapons plugin version.", FCVAR_NOTIFY|FCVAR_DONTRECORD);
@@ -345,17 +368,33 @@ public void OnPluginStart()
 
 	if( g_bLeft4Dead2 )
 	{
+		g_hCvarDelayAdren.AddChangeHook(ConVarChanged_Cvars);
 		g_hCvarHealAdren.AddChangeHook(ConVarChanged_Cvars);
 		g_hCvarPist.AddChangeHook(ConVarChanged_Cvars);
 		g_hCvarMelee.AddChangeHook(ConVarChanged_Cvars);
 	}
+	g_hCvarDelayPills.AddChangeHook(ConVarChanged_Cvars);
+	g_hCvarDelayText.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarHealPills.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarHealRevive.AddChangeHook(ConVarChanged_Cvars);
+	g_hCvarHealText.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarMaxIncap.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarhealthThresh.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarIncapHealth.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarRest.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarThrow.AddChangeHook(ConVarChanged_Cvars);
+
+
+
+	// ====================================================================================================
+	// TRANSLATIONS
+	// ====================================================================================================
+	BuildPath(Path_SM, sPath, sizeof(sPath), "translations/incapped_weapons.phrases.txt");
+	if( FileExists(sPath) )
+	{
+		g_bTranslations = true;
+		LoadTranslations("incapped_weapons.phrases");
+	}
 
 
 
@@ -430,12 +469,14 @@ public void OnPluginStart()
 
 				if( (!g_bCvarThrow || g_iCvarHealAdren || g_iCvarHealPills) && !IsFakeClient(i) )
 				{
-					if( g_iCvarHealAdren || g_iCvarHealPills )
+					// Heal with Pills/Adrenaline
+					if( g_iCvarHealPills || g_iCvarHealAdren )
 					{
 						SDKHook(i, SDKHook_PreThink, OnThinkPre);
 						SDKHook(i, SDKHook_PostThinkPost, OnThinkPost);
 					}
 
+					// Prevent standing up animation when throwing grenades, or hook healing in L4D2
 					if( g_bLeft4DHooks && (!g_bCvarThrow || g_bLeft4Dead2) ) // L4D2 uses anim hook for detecting pills, L4D1 uses the PreThink
 					{
 						AnimHookEnable(i, OnAnimPre);
@@ -473,22 +514,23 @@ public void OnMapEnd()
 
 	if( g_bLeft4Dead2 )
 		MeleeDamageBlock(false);
-
-	ClearTimers();
 }
 
 public void OnClientDisconnect(int client)
 {
-	delete g_hTimers[client];
-	g_bUsePills[client] = false;
-}
-
-void ClearTimers()
-{
 	for( int i = 1; i <= MaxClients; i++ )
 	{
-		delete g_hTimers[i];
+		ClearVars(i);
 	}
+}
+
+void ClearVars(int client)
+{
+	delete g_hTimerRevive[client];
+	delete g_hTimerUseHealth[client];
+	g_bUsePills[client] = false;
+	g_fReviveTimer[client] = 0.0;
+	g_iHint[client] = 0;
 }
 
 public void OnConfigsExecuted()
@@ -511,9 +553,15 @@ void GetCvars()
 	if( g_bBlockChange ) return;
 
 	if( g_bLeft4Dead2 )
+	{
 		g_iCvarHealAdren = g_hCvarHealAdren.IntValue;
+		g_fCvarDelayAdren = g_hCvarDelayAdren.FloatValue;
+	}
+	g_fCvarDelayPills = g_hCvarDelayPills.FloatValue;
+	g_iCvarDelayText = g_hCvarDelayText.IntValue;
 	g_iCvarHealPills = g_hCvarHealPills.IntValue;
 	g_iCvarHealRevive = g_hCvarHealRevive.IntValue;
+	g_iCvarHealText = g_hCvarHealText.IntValue;
 	g_iCvarMaxIncap = g_hCvarMaxIncap.IntValue;
 	g_iCvarhealthThresh = g_hCvarhealthThresh.IntValue;
 	g_iCvarIncapHealth = g_hCvarIncapHealth.IntValue;
@@ -579,7 +627,6 @@ void IsAllowed()
 		PatchMelee(false);
 		UnhookEvents();
 		ResetPlugin();
-		ClearTimers();
 
 		if( g_bLeft4Dead2 )
 		{
@@ -685,21 +732,29 @@ void UnhookEvents()
 
 void Event_Incapped(Event event, const char[] name, bool dontBroadcast)
 {
-	int client = GetClientOfUserId(event.GetInt("userid"));
+	int userid = event.GetInt("userid");
+	int client = GetClientOfUserId(userid);
 	if( client && GetClientTeam(client) == 2 )
 	{
 		if( (!g_bCvarThrow || g_iCvarHealAdren || g_iCvarHealPills) && !IsFakeClient(client) )
 		{
-			// Prevent standing up animation when throwing grenades
-			if( g_iCvarHealAdren || g_iCvarHealPills )
+			// Heal with Pills/Adrenaline
+			if( g_iCvarHealPills || g_iCvarHealAdren )
 			{
 				SDKHook(client, SDKHook_PreThink, OnThinkPre);
 				SDKHook(client, SDKHook_PostThinkPost, OnThinkPost);
 			}
 
-			if( g_bLeft4DHooks && (!g_bCvarThrow || g_bLeft4Dead2) )  // L4D2 uses anim hook for detecting pills, L4D1 uses the PreThink
+			// Prevent standing up animation when throwing grenades, or hook healing in L4D2
+			if( g_bLeft4DHooks && (!g_bCvarThrow || g_bLeft4Dead2) ) // L4D2 uses anim hook for detecting pills, L4D1 uses the PreThink
 			{
 				AnimHookEnable(client, OnAnimPre);
+			}
+
+			// Heal or Revive hint text
+			if( g_iCvarHealText )
+			{
+				CreateTimer(DELAY_HINT, TimerIncap, userid);
 			}
 		}
 
@@ -750,13 +805,91 @@ bool ValidateWeapon(int client, int weapon)
 	return false;
 }
 
+Action TimerIncap(Handle timer, int client)
+{
+	client = GetClientOfUserId(client);
+	if( client && IsClientInGame(client) )
+	{
+		static char sTemp[256];
+		int item = GetPlayerWeaponSlot(client, 4);
+		if( item != -1 )
+		{
+			int type;
+
+			// Check healing item type
+			GetEdictClassname(item, sTemp, sizeof(sTemp));
+			if( strncmp(sTemp[7], "pain", 4) == 0 )
+			{
+				if( g_iCvarHealPills == -1 ) type = 1;
+				else type = 2;
+			}
+			else if( g_bLeft4Dead2 && strncmp(sTemp[7], "adren", 5) == 0 )
+			{
+				if( g_iCvarHealPills == -1 ) type = 3;
+				else type = 4;
+			}
+
+			if( type )
+			{
+				if( g_bTranslations )
+				{
+					switch( type )
+					{
+						case 1: sTemp = "Revive_UsePills";
+						case 2: sTemp = "Heal_UsePills";
+						case 3: sTemp = "Revive_UseAdren";
+						case 4: sTemp = "Heal_UseAdren";
+					}
+
+					switch( g_iCvarHealText )
+					{
+						case 2: CPrintHintText(client, "%T", sTemp, client);
+						default: CPrintToChat(client, "%T", sTemp, client);
+					}
+				}
+				else
+				{
+					switch( g_iCvarHealText )
+					{
+						case 2:
+						{
+							switch( type )
+							{
+								case 1: sTemp = "[Revive] you can use Pills to revive";
+								case 2: sTemp = "[Revive] you can use Pills to heal";
+								case 3: sTemp = "[Revive] you can use Adrenaline to revive";
+								case 4: sTemp = "[Revive] you can use Adrenaline to heal";
+							}
+
+							PrintHintText(client, sTemp);
+						}
+						default:
+						{
+							switch( type )
+							{
+								case 1: sTemp = "{olive}[Revive] {white}you can use {orange}Pills {white}to revive";
+								case 2: sTemp = "{olive}[Revive] {white}you can use {orange}Pills {white}to heal";
+								case 3: sTemp = "{olive}[Revive] {white}you can use {orange}Adrenaline {white}to revive";
+								case 4: sTemp = "{olive}[Revive] {white}you can use {orange}Adrenaline {white}to heal";
+							}
+
+							PrintToChat(client, sTemp);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return Plugin_Continue;
+}
+
 void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast)
 {
 	int client = GetClientOfUserId(event.GetInt("userid"));
 	if( client )
 	{
-		delete g_hTimers[client];
-		g_bUsePills[client] = false;
+		ClearVars(client);
 
 		SDKUnhook(client, SDKHook_PreThink, OnThinkPre);
 		SDKUnhook(client, SDKHook_PostThinkPost, OnThinkPost);
@@ -769,8 +902,7 @@ void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
 	int client = GetClientOfUserId(event.GetInt("userid"));
 	if( client && GetClientTeam(client) == 2 )
 	{
-		delete g_hTimers[client];
-		g_bUsePills[client] = false;
+		ClearVars(client);
 
 		if( g_bLeft4Dead2 && g_iCvarPist == 0 && g_iCvarMelee == 0 )
 		{
@@ -793,8 +925,8 @@ void Event_ReviveSuccess(Event event, const char[] name, bool dontBroadcast)
 	int client = GetClientOfUserId(event.GetInt("subject"));
 	if( client && GetClientTeam(client) == 2 )
 	{
-		delete g_hTimers[client];
-		g_bUsePills[client] = false;
+		g_hTimerRevive[client] = null; // Null here, otherwise deleting throws timer errors because the timer is closing itself at this point with return Plugin_Stop
+		ClearVars(client);
 
 		if( g_bLeft4Dead2 && g_iCvarPist == 0 && g_iCvarMelee == 0 )
 		{
@@ -826,6 +958,8 @@ void ResetPlugin()
 
 	for( int i = 1; i <= MaxClients; i++ )
 	{
+		ClearVars(i);
+
 		if( IsClientInGame(i) )
 		{
 			if( g_bLeft4DHooks )
@@ -903,7 +1037,7 @@ Action OnTakeDamage(int victim, int &attacker, int &inflictor, float &damage, in
 Action CanSwitchTo(int client, int weapon)
 {
 	// This causes the animation to sometimes partially skip on L4D1 and doesn't seem to have any effect on L4D2, so removing.
-	// if( g_hTimers[client] ) return Plugin_Handled; // Block while using Pills/Adrenaline
+	// if( g_hTimerUseHealth[client] ) return Plugin_Handled; // Block while using Pills/Adrenaline
 
 	static char classname[32];
 	GetEdictClassname(weapon, classname, sizeof(classname));
@@ -931,7 +1065,7 @@ void OnThinkPre(int client)
 	g_bBlockChange = true;
 	g_hCvarhealthThresh.IntValue = 9999;
 
-	if( g_bUsePills[client] )
+	if( g_bUsePills[client] ) // Only set in L4D1
 	{
 		if( GetClientButtons(client) & IN_ATTACK )
 		{
@@ -1033,22 +1167,21 @@ void HealSetup(int client, bool pills)
 	int weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
 	if( weapon != 1 )
 	{
-		weapon = EntIndexToEntRef(weapon);
 		SetEntPropFloat(weapon, Prop_Send, "m_flNextPrimaryAttack", GetGameTime() + 1.0);
 	}
 
 	// Heal when animation is complete and delete weapon
 	DataPack dPack;
 
-	delete g_hTimers[client];
+	delete g_hTimerUseHealth[client];
 
 	if( pills )
-		g_hTimers[client] = CreateDataTimer(0.5, TimerPills, dPack);
+		g_hTimerUseHealth[client] = CreateDataTimer(HEAL_ANIM_PILLS, TimerPills, dPack);
 	else
-		g_hTimers[client] = CreateDataTimer(0.8, TimerAdren, dPack);
+		g_hTimerUseHealth[client] = CreateDataTimer(HEAL_ANIM_ADREN, TimerAdren, dPack);
 
 	dPack.WriteCell(GetClientUserId(client));
-	dPack.WriteCell(weapon);
+	dPack.WriteCell(EntIndexToEntRef(weapon));
 }
 
 Action TimerAdren(Handle timer, DataPack dPack)
@@ -1073,7 +1206,7 @@ void HealPlayer(DataPack dPack, bool pills)
 	// Validate client
 	int client = GetClientOfUserId(userid);
 
-	g_hTimers[client] = null;
+	g_hTimerUseHealth[client] = null;
 
 	if( client && IsClientInGame(client) && GetEntProp(client, Prop_Send, "m_isIncapacitated", 1) )
 	{
@@ -1088,27 +1221,49 @@ void HealPlayer(DataPack dPack, bool pills)
 		if( (pills ? g_iCvarHealPills : g_iCvarHealAdren) == -1 )
 		{
 			// Revive player
-			L4D_ReviveSurvivor(client);
-
-			// Revive black and white
-			int test = pills ? 0 : 1;
-			if( g_iCvarHealRevive & (1 << test) )
+			switch( pills )
 			{
-				if( g_bHeartbeat )
+				case true:
 				{
-					Heartbeat_SetRevives(client, g_iCvarMaxIncap);
-					if( g_bLeft4Dead2 )
+					if( g_fCvarDelayPills == 0.0 )
 					{
-						SetEntProp(client, Prop_Send, "m_currentReviveCount", g_iCvarMaxIncap);
+						RevivePlayer(client, true);
+					}
+					else
+					{
+						if( g_fReviveTimer[client] == 0.0 )
+						{
+							g_iHint[client] = 0;
+							g_fReviveTimer[client] = g_fCvarDelayPills;
+							delete g_hTimerRevive[client];
+
+							DataPack dpTimer;
+							g_hTimerRevive[client] = CreateDataTimer(TIMER_REVIVE, TimerRevive, dpTimer, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
+							dpTimer.WriteCell(userid);
+							dpTimer.WriteCell(true);
+						}
 					}
 				}
-				else
+				case false:
 				{
-					if( g_bLeft4Dead2 )
-						SetEntProp(client, Prop_Send, "m_bIsOnThirdStrike", 1);
+					if( g_fCvarDelayAdren == 0.0 )
+					{
+						RevivePlayer(client, false);
+					}
+					else
+					{
+						if( g_fReviveTimer[client] == 0.0 )
+						{
+							g_iHint[client] = 0;
+							g_fReviveTimer[client] = g_fCvarDelayAdren;
+							delete g_hTimerRevive[client];
 
-					SetEntProp(client, Prop_Send, "m_currentReviveCount", g_iCvarMaxIncap);
-					SetEntProp(client, Prop_Send, "m_isGoingToDie", 1);
+							DataPack dpTimer;
+							g_hTimerRevive[client] = CreateDataTimer(TIMER_REVIVE, TimerRevive, dpTimer, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
+							dpTimer.WriteCell(userid);
+							dpTimer.WriteCell(false);
+						}
+					}
 				}
 			}
 		}
@@ -1132,6 +1287,111 @@ void HealPlayer(DataPack dPack, bool pills)
 			Event hEvent = CreateEvent("pills_used");
 			hEvent.SetInt("userid", userid);
 			hEvent.Fire();
+		}
+	}
+}
+
+Action TimerRevive(Handle timer, DataPack dPack)
+{
+	dPack.Reset();
+	int client = dPack.ReadCell();
+
+	client = GetClientOfUserId(client);
+	if( client && IsClientInGame(client) )
+	{
+		g_fReviveTimer[client] -= TIMER_REVIVE;
+
+		// Hint
+		if( g_iCvarDelayText )
+		{
+			int secs = RoundToCeil(g_fReviveTimer[client]);
+			if( secs != g_iHint[client] )
+			{
+				g_iHint[client] = secs;
+
+				if( secs )
+				{
+					if( g_bTranslations )
+					{
+						switch( g_iCvarDelayText )
+						{
+							case 2: CPrintHintText(client, "%T", "Revive_Wait", client, secs);
+							default: CPrintToChat(client, "%T", "Revive_Wait", client, secs);
+						}
+					}
+					else
+					{
+						switch( g_iCvarDelayText )
+						{
+							case 2: PrintHintText(client, "Reviving in %d", secs);
+							default: PrintToChat(client, "\x05Reviving \x01in \x04%d", secs);
+						}
+					}
+				}
+				else
+				{
+					if( g_bTranslations )
+					{
+						switch( g_iCvarDelayText )
+						{
+							case 2: CPrintHintText(client, "%T", "Revive_Done", client, secs);
+							default: CPrintToChat(client, "%T", "Revive_Done", client, secs);
+						}
+					}
+					else
+					{
+						switch( g_iCvarDelayText )
+						{
+							case 2: PrintHintText(client, "Revived!", secs);
+							default: PrintToChat(client, "\x05\x05Revived!", secs);
+						}
+					}
+				}
+			}
+		}
+
+		// Revive
+		if( g_fReviveTimer[client] <= 0.0 )
+		{
+			g_fReviveTimer[client] = 0.0;
+
+			bool pills = dPack.ReadCell();
+			RevivePlayer(client, pills);
+		}
+		else
+		{
+			return Plugin_Continue;
+		}
+	}
+
+	g_hTimerRevive[client] = null;
+	return Plugin_Stop;
+}
+
+void RevivePlayer(int client, bool pills)
+{
+	L4D_ReviveSurvivor(client);
+
+	// Revive black and white
+	int test = pills ? 0 : 1;
+
+	if( g_iCvarHealRevive & (1 << test) )
+	{
+		if( g_bHeartbeat )
+		{
+			Heartbeat_SetRevives(client, g_iCvarMaxIncap);
+			if( g_bLeft4Dead2 )
+			{
+				SetEntProp(client, Prop_Send, "m_currentReviveCount", g_iCvarMaxIncap);
+			}
+		}
+		else
+		{
+			if( g_bLeft4Dead2 )
+				SetEntProp(client, Prop_Send, "m_bIsOnThirdStrike", 1);
+
+			SetEntProp(client, Prop_Send, "m_currentReviveCount", g_iCvarMaxIncap);
+			SetEntProp(client, Prop_Send, "m_isGoingToDie", 1);
 		}
 	}
 }
@@ -1256,4 +1516,39 @@ void PatchMelee(int patch)
 			StoreToAddress(g_Address_OnIncap + view_as<Address>(i), g_ByteSaved_OnIncap.Get(i), NumberType_Int8);
 		}
 	}
+}
+
+
+
+// ====================================================================================================
+//					COLORS.INC REPLACEMENT
+// ====================================================================================================
+void CPrintToChat(int client, char[] message, any ...)
+{
+	static char buffer[256];
+	VFormat(buffer, sizeof(buffer), message, 3);
+
+	ReplaceString(buffer, sizeof(buffer), "{default}",		"\x01");
+	ReplaceString(buffer, sizeof(buffer), "{white}",		"\x01");
+	ReplaceString(buffer, sizeof(buffer), "{cyan}",			"\x03");
+	ReplaceString(buffer, sizeof(buffer), "{lightgreen}",	"\x03");
+	ReplaceString(buffer, sizeof(buffer), "{orange}",		"\x04");
+	ReplaceString(buffer, sizeof(buffer), "{green}",		"\x04"); // Actually orange in L4D2, but replicating colors.inc behaviour
+	ReplaceString(buffer, sizeof(buffer), "{olive}",		"\x05");
+	PrintToChat(client, buffer);
+}
+
+void CPrintHintText(int client, char[] message, any ...)
+{
+	static char buffer[256];
+	VFormat(buffer, sizeof(buffer), message, 3);
+
+	ReplaceString(buffer, sizeof(buffer), "{default}",		"");
+	ReplaceString(buffer, sizeof(buffer), "{white}",		"");
+	ReplaceString(buffer, sizeof(buffer), "{cyan}",			"");
+	ReplaceString(buffer, sizeof(buffer), "{lightgreen}",	"");
+	ReplaceString(buffer, sizeof(buffer), "{orange}",		"");
+	ReplaceString(buffer, sizeof(buffer), "{green}",		""); // Actually orange in L4D2, but replicating colors.inc behaviour
+	ReplaceString(buffer, sizeof(buffer), "{olive}",		"");
+	PrintHintText(client, buffer);
 }
