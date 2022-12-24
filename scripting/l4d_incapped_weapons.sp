@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.21"
+#define PLUGIN_VERSION 		"1.22"
 
 /*=======================================================================================
 	Plugin Info:
@@ -31,6 +31,11 @@
 
 ========================================================================================
 	Change Log:
+
+1.22 (24-Dec-2022)
+	- Fixed printing the color codes instead of using them when translations are missing. Thanks to "HarryPotter" for reporting.
+	- Fixed displaying hints about using Pills/Adrenaline when they are restricted. Thanks to "HarryPotter" for reporting.
+	- Fixed displaying the wrong hint for Adrenaline when revive option was set.
 
 1.21 (21-Dec-2022)
 	- Added cvars "l4d_incapped_weapons_delay_pills" and "l4d_incapped_weapons_delay_adren" to set a delay before reviving. Requested by "BystanderZK".
@@ -140,7 +145,7 @@
 #define TIMER_REVIVE			0.2		// How often the timer ticks for delayed revive
 #define HEAL_ANIM_ADREN			1.3		// How long the healing animation lasts before applying the heal
 #define HEAL_ANIM_PILLS			0.6		// How long the healing animation lasts before applying the heal
-#define DELAY_HINT				2.0		// Delay incapacitated event hint message
+#define DELAY_HINT				1.0		// Delay incapacitated event hint message
 
 
 ConVar g_hCvarAllow, g_hCvarMPGameMode, g_hCvarMaxIncap, g_hCvarhealthThresh, g_hCvarIncapHealth, g_hCvarDelayAdren, g_hCvarDelayPills, g_hCvarDelayText, g_hCvarHealAdren, g_hCvarHealPills,
@@ -818,6 +823,7 @@ Action TimerIncap(Handle timer, int client)
 
 			// Check healing item type
 			GetEdictClassname(item, sTemp, sizeof(sTemp));
+
 			if( strncmp(sTemp[7], "pain", 4) == 0 )
 			{
 				if( g_iCvarHealPills == -1 ) type = 1;
@@ -825,10 +831,18 @@ Action TimerIncap(Handle timer, int client)
 			}
 			else if( g_bLeft4Dead2 && strncmp(sTemp[7], "adren", 5) == 0 )
 			{
-				if( g_iCvarHealPills == -1 ) type = 3;
+				if( g_iCvarHealAdren == -1 ) type = 3;
 				else type = 4;
 			}
 
+			// Prevent message if item type blocked
+			switch( type )
+			{
+				case 1, 2: if( (g_bLeft4Dead2 && g_aRestrict.FindValue(15) != -1) || (!g_bLeft4Dead2 && g_aRestrict.FindValue(12) != -1) ) return Plugin_Continue;
+				case 3, 4: if( g_aRestrict.FindValue(23) != -1 ) return Plugin_Continue;
+			}
+
+			// Show hints for item type held and type of feature
 			if( type )
 			{
 				if( g_bTranslations )
@@ -867,10 +881,10 @@ Action TimerIncap(Handle timer, int client)
 						{
 							switch( type )
 							{
-								case 1: sTemp = "{olive}[Revive] {white}you can use {orange}Pills {white}to revive";
-								case 2: sTemp = "{olive}[Revive] {white}you can use {orange}Pills {white}to heal";
-								case 3: sTemp = "{olive}[Revive] {white}you can use {orange}Adrenaline {white}to revive";
-								case 4: sTemp = "{olive}[Revive] {white}you can use {orange}Adrenaline {white}to heal";
+								case 1: sTemp = "\x05[Revive] \x01you can use \x04Pills \x01to revive";
+								case 2: sTemp = "\x05[Revive] \x01you can use \x04Pills \x01to heal";
+								case 3: sTemp = "\x05[Revive] \x01you can use \x04Adrenaline \x01to revive";
+								case 4: sTemp = "\x05[Revive] \x01you can use \x04Adrenaline \x01to heal";
 							}
 
 							PrintToChat(client, sTemp);
