@@ -35,6 +35,7 @@
 1.22 (24-Dec-2022)
 	- Fixed printing the color codes instead of using them when translations are missing. Thanks to "HarryPotter" for reporting.
 	- Fixed displaying hints about using Pills/Adrenaline when they are restricted. Thanks to "HarryPotter" for reporting.
+	- Fixed infinite animation loop when holding mouse1 with Adrenaline. Thanks to "ForTheSakura" for reporting.
 	- Fixed displaying the wrong hint for Adrenaline when revive option was set.
 
 1.21 (21-Dec-2022)
@@ -1181,7 +1182,7 @@ void HealSetup(int client, bool pills)
 	int weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
 	if( weapon != 1 )
 	{
-		SetEntPropFloat(weapon, Prop_Send, "m_flNextPrimaryAttack", GetGameTime() + 1.0);
+		SetEntPropFloat(weapon, Prop_Send, "m_flNextPrimaryAttack", GetGameTime() + (pills ? HEAL_ANIM_PILLS : HEAL_ANIM_ADREN) + 0.2);
 	}
 
 	// Heal when animation is complete and delete weapon
