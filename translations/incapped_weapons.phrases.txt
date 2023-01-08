@@ -12,21 +12,21 @@
 
 	"Revive_UsePills"
 	{
-		"en"		"{olive}[Revive] {white}you can use {orange}Pills {white}to revive"
+		"en"		"{olive}[Incap] {white}you can use {orange}Pills {white}to revive"
 	}
 
 	"Revive_UseAdren"
 	{
-		"en"		"{olive}[Revive] {white}you can use {orange}Adrenaline {white}to revive"
+		"en"		"{olive}[Incap] {white}you can use {orange}Adrenaline {white}to revive"
 	}
 
 	"Heal_UsePills"
 	{
-		"en"		"{olive}[Revive] {white}you can use {orange}Pills {white}to heal"
+		"en"		"{olive}[Incap] {white}you can use {orange}Pills {white}to heal"
 	}
 
 	"Heal_UseAdren"
 	{
-		"en"		"{olive}[Revive] {white}you can use {orange}Adrenaline {white}to heal"
+		"en"		"{olive}[Incap] {white}you can use {orange}Adrenaline {white}to heal"
 	}
 }

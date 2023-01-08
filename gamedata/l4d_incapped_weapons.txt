@@ -2,17 +2,35 @@
 {
 	"left4dead2"
 	{
+		"Functions"
+		{
+			"IW::CPainPills::CanUseOnSelf"
+			{
+				"signature"		"CPainPills::CanUseOnSelf"
+				"callconv"		"thiscall"
+				"return"		"int"
+				"this"			"entity"
+				"arguments"
+				{
+					"client"
+					{
+						"type"	"cbaseentity"
+					}
+				}
+			}
+		}
+
 		"Addresses"
 		{
 			"CanDeploy"
 			{
 				"windows"
 				{
-					"signature"	"CanDeploy"			
+					"signature"	"CTerrorWeapon::CanDeployFor"			
 				}
 				"linux"
 				{
-					"signature"	"CanDeploy"
+					"signature"	"CTerrorWeapon::CanDeployFor"
 				}
 			}
 
@@ -20,11 +38,11 @@
 			{
 				"windows"
 				{
-					"signature"	"OnIncapacitatedAsSurvivor"			
+					"signature"	"CTerrorPlayer::OnIncapacitatedAsSurvivor"			
 				}
 				"linux"
 				{
-					"signature"	"OnIncapacitatedAsSurvivor"
+					"signature"	"CTerrorPlayer::OnIncapacitatedAsSurvivor"
 				}
 			}
 		}
@@ -67,7 +85,7 @@
 		"Signatures"
 		{
 			/* CTerrorWeapon::CanDeployFor(CTerrorWeapon *this, CTerrorPlayer *) */
-			"CanDeploy"
+			"CTerrorWeapon::CanDeployFor"
 			{
 				"library"		"server"
 				"linux"			"@_ZN13CTerrorWeapon12CanDeployForEP13CTerrorPlayer"
@@ -77,7 +95,7 @@
 			}
 
 			/* CTerrorPlayer::OnIncapacitatedAsSurvivor(CTakeDamageInfo  const&) */
-			"OnIncapacitatedAsSurvivor"
+			"CTerrorPlayer::OnIncapacitatedAsSurvivor"
 			{
 				"library"		"server"
 				"linux"			"@_ZN13CTerrorPlayer25OnIncapacitatedAsSurvivorERK15CTakeDamageInfo"
@@ -89,11 +107,32 @@
 				// /* 53 8B ? 83 ? ? 83 ? ? 83 ? ? 55 8B ? ? 89 ? ? ? 8B ? 81 ? ? ? ? ? A1 ? ? ? ? 33 */
 				/* Search: "PainLevel:Critical" */
 			}
+
+			/* CPainPills::CanUseOnSelf(CPainPills *this, CTerrorPlayer *) */
+			"CPainPills::CanUseOnSelf"
+			{
+				"library"		"server"
+				"linux"			"@_ZN10CPainPills12CanUseOnSelfEP13CTerrorPlayer"
+				"windows"		"\x2A\x2A\x2A\x2A\x2A\x2A\x2A\x2A\x2A\x2A\xD9\x2A\x2A\x57\x8B\x2A\x2A\xD9\x2A\x2A\x8B\x2A\x2A\x2A\x2A\x2A\x8B\x2A\x89\x2A\x2A\x8B"
+				/* ? ? ? ? ? ? ? ? ? ? D9 ? ? 57 8B ? ? D9 ? ? 8B ? ? ? ? ? 8B ? 89 ? ? 8B */
+				/* Search: "pills_used_fail" */
+			}
 		}
 	}
 
 	"left4dead"
 	{
+		"Functions"
+		{
+			"IW::CPainPills::PrimaryAttack"
+			{
+				"signature"		"CPainPills::PrimaryAttack"
+				"callconv"		"thiscall"
+				"return"		"int"
+				"this"			"entity"
+			}
+		}
+
 		"Addresses"
 		{
 			"CanDeploy"
@@ -138,6 +177,16 @@
 				"windows"		"\x56\x57\x8B\x2A\xE8\x2A\x2A\x2A\x2A\x8B\x2A\x85\x2A\x0F\x84\x2A\x2A\x2A\x2A\x8B\x2A\x8B\x2A\x2A\x2A\x2A\x2A\x8B\x2A\xFF\x2A\x84\x2A\x0F\x84\x2A\x2A\x2A\x2A\x8B\x2A\x8B\x2A\x2A\x2A\x2A\x2A\x8B\x2A\xFF\x2A\x84\x2A\x74"
 				/* 56 57 8B ? E8 ? ? ? ? 8B ? 85 ? 0F 84 ? ? ? ? 8B ? 8B ? ? ? ? ? 8B ? FF ? 84 ? 0F 84 ? ? ? ? 8B ? 8B ? ? ? ? ? 8B ? FF ? 84 ? 74 */
 				/* Search: "models/weapons/w_shield.mdl". VTable entry below. */
+			}
+
+			/* CPainPills::PrimaryAttack(CPainPills *this) */
+			"CPainPills::PrimaryAttack"
+			{
+				"library"		"server"
+				"linux"			"@_ZN10CPainPills13PrimaryAttackEv"
+				"windows"		"\x2A\x2A\x2A\x2A\x2A\x2A\x8B\x2A\xE8\x2A\x2A\x2A\x2A\x8B\x2A\x85\x2A\x0F\x84\x2A\x2A\x2A\x2A\x8B\x2A\x8B\x2A\x2A\x2A\x2A\x2A\x8B\x2A\xFF\x2A\x84\x2A\x0F\x84\x2A\x2A\x2A\x2A\xD9\x2A\xD8\x2A\x2A\x2A\x2A\x2A\xDF\x2A\xF6\x2A\x2A\x0F"
+				/* ? ? ? ? ? ? 8B ? E8 ? ? ? ? 8B ? 85 ? 0F 84 ? ? ? ? 8B ? 8B ? ? ? ? ? 8B ? FF ? 84 ? 0F 84 ? ? ? ? D9 ? D8 ? ? ? ? ? DF ? F6 ? ? 0F */
+				/* Search: "pills_used_fail" */
 			}
 		}
 	}
