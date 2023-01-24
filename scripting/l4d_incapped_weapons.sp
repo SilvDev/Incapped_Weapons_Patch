@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.23"
+#define PLUGIN_VERSION 		"1.24"
 
 /*=======================================================================================
 	Plugin Info:
@@ -31,6 +31,9 @@
 
 ========================================================================================
 	Change Log:
+
+1.24 (24-Jan-2023)
+	- Added cvar "l4d_incapped_weapons_heal_friendly" to scale friendly fire damage from incapped Survivors. Requested by "choppledpickusfungus".
 
 1.23 (08-Jan-2023)
 	- Plugin now requires SourceMod 1.11 version of DHooks.
@@ -160,11 +163,11 @@
 #define DELAY_HINT			1.0		// Delay incapacitated event hint message
 
 
-ConVar g_hCvarAllow, g_hCvarMPGameMode, g_hCvarMaxIncap, g_hCvarIncapHealth, g_hCvarDelayAdren, g_hCvarDelayPills, g_hCvarDelayText, g_hCvarHealAdren, g_hCvarHealPills,
-	g_hCvarHealRevive, g_hCvarHealText, g_hCvarModes, g_hCvarModesOff, g_hCvarModesTog, g_hCvarMelee, g_hCvarPist, g_hCvarRest, g_hCvarThrow;
+ConVar g_hCvarAllow, g_hCvarMPGameMode, g_hCvarDifficulty, g_hCvarFriendly1, g_hCvarFriendly2, g_hCvarFriendly3, g_hCvarFriendly4, g_hCvarMaxIncap, g_hCvarIncapHealth, g_hCvarDelayAdren, g_hCvarDelayPills, g_hCvarDelayText, g_hCvarHealAdren, g_hCvarHealPills,
+	g_hCvarHealRevive, g_hCvarHealText, g_hCvarFriendly, g_hCvarModes, g_hCvarModesOff, g_hCvarModesTog, g_hCvarMelee, g_hCvarPist, g_hCvarRest, g_hCvarThrow;
 bool g_bTranslations, g_bMapStarted, g_bLeft4Dead2, g_bHeartbeat, g_bGrenadeFix, g_bLateLoad, g_bCvarAllow, g_bCvarThrow;
 int g_iCvarDelayText, g_iCvarMaxIncap, g_iCvarIncapHealth, g_iCvarHealAdren, g_iCvarHealPills, g_iCvarHealText, g_iCvarHealRevive, g_iCvarPist, g_iCvarMelee, g_iHint[MAXPLAYERS+1];
-float g_fCvarDelayAdren, g_fCvarDelayPills, g_fReviveTimer[MAXPLAYERS+1];
+float g_fCvarDelayAdren, g_fCvarDelayPills, g_fCvarFriendly, g_fReviveTimer[MAXPLAYERS+1];
 Handle g_hTimerUseHealth[MAXPLAYERS+1];
 Handle g_hTimerRevive[MAXPLAYERS+1];
 bool g_bHasHeal[MAXPLAYERS+1];
@@ -214,6 +217,9 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	MarkNativeAsOptional("Heartbeat_SetRevives");
 
 	g_bLateLoad = late;
+
+	RegPluginLibrary("l4d_incapped_weapons");
+
 	return APLRes_Success;
 }
 
@@ -336,7 +342,6 @@ public void OnPluginStart()
 	g_hCvarModesOff =		CreateConVar(	"l4d_incapped_weapons_modes_off",		"",						"Turn off the plugin in these game modes, separate by commas (no spaces). (Empty = none).", CVAR_FLAGS );
 	g_hCvarModesTog =		CreateConVar(	"l4d_incapped_weapons_modes_tog",		"0",					"Turn on the plugin in these game modes. 0=All, 1=Coop, 2=Survival, 4=Versus, 8=Scavenge. Add numbers together.", CVAR_FLAGS );
 
-
 	if( g_bLeft4Dead2 )
 		g_hCvarDelayAdren =	CreateConVar(	"l4d_incapped_weapons_delay_adren",		"5.0",					"0.0=Off. How many seconds a player must wait after using Adrenaline to be revived.", CVAR_FLAGS);
 	g_hCvarDelayPills =		CreateConVar(	"l4d_incapped_weapons_delay_pills",		"5.0",					"0.0=Off. How many seconds a player must wait after using Pills to be revived.", CVAR_FLAGS);
@@ -347,6 +352,7 @@ public void OnPluginStart()
 	g_hCvarHealPills =		CreateConVar(	"l4d_incapped_weapons_heal_pills",		"50",					"-1=Revive player. 0=Off. How much to heal a player when they use Pain Pills whilst incapped.", CVAR_FLAGS);
 	g_hCvarHealRevive =		CreateConVar(	"l4d_incapped_weapons_heal_revive",		"0",					"0=Off. Should player enter black and white status when reviving using: 1=Pills. 2=Adrenaline. 3=Both.", CVAR_FLAGS);
 	g_hCvarHealText =		CreateConVar(	"l4d_incapped_weapons_heal_text",		"1",					"0=Off. 1=Print to chat. 2=Print to hint box. Print a message when incapacitated that Pills/Adrenaline can be used to heal/revive.", CVAR_FLAGS);
+	g_hCvarFriendly =		CreateConVar(	"l4d_incapped_weapons_heal_friendly",	"1.0",					"0.0=None. 1.0=Default damage. Scales an incapped Survivors friendly fire damage to other Survivors. Multiplied against the games survivor_friendly_fire* cvars.", CVAR_FLAGS);
 
 	if( g_bLeft4Dead2 )
 	{
@@ -365,6 +371,18 @@ public void OnPluginStart()
 	g_hCvarMaxIncap = FindConVar("survivor_max_incapacitated_count");
 	g_hCvarIncapHealth = FindConVar("survivor_incap_health");
 	g_hCvarMPGameMode = FindConVar("mp_gamemode");
+	g_hCvarDifficulty = FindConVar("z_difficulty");
+	g_hCvarFriendly1 = FindConVar("survivor_friendly_fire_factor_easy");
+	g_hCvarFriendly2 = FindConVar("survivor_friendly_fire_factor_normal");
+	g_hCvarFriendly3 = FindConVar("survivor_friendly_fire_factor_hard");
+	g_hCvarFriendly4 = FindConVar("survivor_friendly_fire_factor_expert");
+
+	g_hCvarDifficulty.AddChangeHook(ConVarChanged_Cvars);
+	g_hCvarFriendly1.AddChangeHook(ConVarChanged_Cvars);
+	g_hCvarFriendly2.AddChangeHook(ConVarChanged_Cvars);
+	g_hCvarFriendly3.AddChangeHook(ConVarChanged_Cvars);
+	g_hCvarFriendly4.AddChangeHook(ConVarChanged_Cvars);
+	g_hCvarFriendly.AddChangeHook(ConVarChanged_Cvars);
 
 	g_hCvarMPGameMode.AddChangeHook(ConVarChanged_Allow);
 	g_hCvarModes.AddChangeHook(ConVarChanged_Allow);
@@ -520,8 +538,7 @@ public void OnMapEnd()
 	g_bMapStarted = false;
 	ResetPlugin();
 
-	if( g_bLeft4Dead2 )
-		MeleeDamageBlock(false);
+	DamageHook(false);
 
 	for( int i = 1; i <= MaxClients; i++ )
 		ClearVars(i);
@@ -566,6 +583,7 @@ void GetCvars()
 	}
 	g_fCvarDelayPills = g_hCvarDelayPills.FloatValue;
 	g_iCvarDelayText = g_hCvarDelayText.IntValue;
+	g_fCvarFriendly = g_hCvarFriendly.FloatValue;
 	g_iCvarHealPills = g_hCvarHealPills.IntValue;
 	g_iCvarHealRevive = g_hCvarHealRevive.IntValue;
 	g_iCvarHealText = g_hCvarHealText.IntValue;
@@ -579,29 +597,36 @@ void GetCvars()
 		g_iCvarMelee = g_hCvarMelee.IntValue;
 		PatchMelee(g_iCvarPist == 0);
 
-		if( g_bCvarAllow && g_iCvarPist == 0 && g_iCvarMelee == 0 )
-			MeleeDamageBlock(true);
+		if( g_bCvarAllow )
+			DamageHook(true);
 		else
-			MeleeDamageBlock(false);
+			DamageHook(false);
 	}
 
+	// Friendly fire by difficulty
+	char sTemp[128];
+	g_hCvarDifficulty.GetString(sTemp, sizeof(sTemp));
+	if( strncmp(sTemp, "e", 1, false) == 0 )			g_fCvarFriendly *= g_hCvarFriendly1.FloatValue;
+	else if( strncmp(sTemp, "n", 1, false) == 0 )		g_fCvarFriendly *= g_hCvarFriendly2.FloatValue;
+	else if( strncmp(sTemp, "h", 1, false) == 0 )		g_fCvarFriendly *= g_hCvarFriendly3.FloatValue;
+	else if( strncmp(sTemp, "i", 1, false) == 0 )		g_fCvarFriendly *= g_hCvarFriendly4.FloatValue;
+
 	// Add weapon IDs to array
-	char sBlock[128];
-	g_hCvarRest.GetString(sBlock, sizeof(sBlock));
+	g_hCvarRest.GetString(sTemp, sizeof(sTemp));
 
 	delete g_aRestrict;
 	g_aRestrict = new ArrayList();
 
-	if( sBlock[0] )
+	if( sTemp[0] )
 	{
-		StrCat(sBlock, sizeof(sBlock), ",");
+		StrCat(sTemp, sizeof(sTemp), ",");
 
 		int index, last;
-		while( (index = StrContains(sBlock[last], ",")) != -1 )
+		while( (index = StrContains(sTemp[last], ",")) != -1 )
 		{
-			sBlock[last + index] = 0;
-			g_aRestrict.Push(StringToInt(sBlock[last]));
-			sBlock[last + index] = ',';
+			sTemp[last + index] = 0;
+			g_aRestrict.Push(StringToInt(sTemp[last]));
+			sTemp[last + index] = ',';
 			last += index + 1;
 		}
 	}
@@ -621,10 +646,7 @@ void IsAllowed()
 		HookEvents();
 		DetourAdd();
 
-		if( g_bLeft4Dead2 && g_iCvarPist == 0 && g_iCvarMelee == 0 )
-		{
-			MeleeDamageBlock(true);
-		}
+		DamageHook(true);
 	}
 
 	else if( g_bCvarAllow == true && (bCvarAllow == false || bAllowMode == false) )
@@ -636,10 +658,7 @@ void IsAllowed()
 		DetourRem();
 		ResetPlugin();
 
-		if( g_bLeft4Dead2 )
-		{
-			MeleeDamageBlock(false);
-		}
+		DamageHook(false);
 	}
 }
 
@@ -766,10 +785,7 @@ void Event_Incapped(Event event, const char[] name, bool dontBroadcast)
 		}
 
 		// Melee weapons block friendly fire
-		if( g_bLeft4Dead2 && g_iCvarPist == 0 && g_iCvarMelee == 0 )
-		{
-			MeleeDamageBlock(true);
-		}
+		DamageHook(true);
 
 		// For weapon restrictions
 		SDKHook(client, SDKHook_WeaponCanSwitchTo, CanSwitchTo);
@@ -926,10 +942,7 @@ void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
 	{
 		ClearVars(client);
 
-		if( g_bLeft4Dead2 && g_iCvarPist == 0 && g_iCvarMelee == 0 )
-		{
-			MeleeDamageBlock(true);
-		}
+		DamageHook(true);
 
 		AnimHookDisable(client, OnAnimPre);
 
@@ -946,10 +959,7 @@ void Event_ReviveSuccess(Event event, const char[] name, bool dontBroadcast)
 		g_hTimerRevive[client] = null; // Null here, otherwise deleting throws timer errors because the timer is closing itself at this point with return Plugin_Stop
 		ClearVars(client);
 
-		if( g_bLeft4Dead2 && g_iCvarPist == 0 && g_iCvarMelee == 0 )
-		{
-			MeleeDamageBlock(true);
-		}
+		DamageHook(true);
 
 		AnimHookDisable(client, OnAnimPre);
 
@@ -962,8 +972,7 @@ void Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	ResetPlugin();
 
-	if( g_bLeft4Dead2 )
-		MeleeDamageBlock(false);
+	DamageHook(false);
 }
 
 void ResetPlugin()
@@ -987,7 +996,7 @@ void ResetPlugin()
 //					DAMAGE HOOKS
 // ====================================================================================================
 // Hook players OnTakeDamage if someone is incapped - to block melee weapon damage to survivors
-void MeleeDamageBlock(bool enable)
+void DamageHook(bool enable)
 {
 	bool incapped;
 
@@ -1021,7 +1030,7 @@ Action OnTakeDamage(int victim, int &attacker, int &inflictor, float &damage, in
 {
 	if( victim > 0 && victim <= MaxClients && attacker > 0 && attacker <= MaxClients && inflictor > MaxClients && GetClientTeam(victim) == 2 && GetClientTeam(attacker) == 2 && GetEntProp(attacker, Prop_Send, "m_isIncapacitated", 1) && GetEntProp(attacker, Prop_Send, "m_isHangingFromLedge", 1) == 0 )
 	{
-		if( IsValidEntity(inflictor) )
+		if( g_bLeft4Dead2 && g_iCvarPist == 0 && g_iCvarMelee == 0 && IsValidEntity(inflictor) )
 		{
 			static char classname[16];
 			GetEdictClassname(inflictor, classname, sizeof(classname));
@@ -1031,6 +1040,12 @@ Action OnTakeDamage(int victim, int &attacker, int &inflictor, float &damage, in
 				damage = 0.0;
 				return Plugin_Changed;
 			}
+		}
+
+		if( g_fCvarFriendly != 1.0 )
+		{
+			damage *= g_fCvarFriendly;
+			return Plugin_Changed;
 		}
 	}
 
