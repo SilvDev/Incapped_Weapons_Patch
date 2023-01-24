@@ -33,7 +33,7 @@
 	Change Log:
 
 1.24 (24-Jan-2023)
-	- Added cvar "l4d_incapped_weapons_heal_friendly" to scale friendly fire damage from incapped Survivors. Requested by "choppledpickusfungus".
+	- Added cvar "l4d_incapped_weapons_friendly" to scale friendly fire damage from incapped Survivors. Requested by "choppledpickusfungus".
 
 1.23 (08-Jan-2023)
 	- Plugin now requires SourceMod 1.11 version of DHooks.
@@ -347,12 +347,13 @@ public void OnPluginStart()
 	g_hCvarDelayPills =		CreateConVar(	"l4d_incapped_weapons_delay_pills",		"5.0",					"0.0=Off. How many seconds a player must wait after using Pills to be revived.", CVAR_FLAGS);
 	g_hCvarDelayText =		CreateConVar(	"l4d_incapped_weapons_delay_text",		"2",					"0=Off. 1=Print to chat. 2=Print to hint box. Display to player how long until they are revived, when using a _delay cvar.", CVAR_FLAGS);
 
+	g_hCvarFriendly =		CreateConVar(	"l4d_incapped_weapons_friendly",		"1.0",					"0.0=None. 1.0=Default damage. Scales an incapped Survivors friendly fire damage to other Survivors. Multiplied against the games survivor_friendly_fire* cvars.", CVAR_FLAGS);
+
 	if( g_bLeft4Dead2 )
 		g_hCvarHealAdren =	CreateConVar(	"l4d_incapped_weapons_heal_adren",		"50",					"-1=Revive player. 0=Off. How much to heal a player when they use Adrenaline whilst incapped.", CVAR_FLAGS);
 	g_hCvarHealPills =		CreateConVar(	"l4d_incapped_weapons_heal_pills",		"50",					"-1=Revive player. 0=Off. How much to heal a player when they use Pain Pills whilst incapped.", CVAR_FLAGS);
 	g_hCvarHealRevive =		CreateConVar(	"l4d_incapped_weapons_heal_revive",		"0",					"0=Off. Should player enter black and white status when reviving using: 1=Pills. 2=Adrenaline. 3=Both.", CVAR_FLAGS);
 	g_hCvarHealText =		CreateConVar(	"l4d_incapped_weapons_heal_text",		"1",					"0=Off. 1=Print to chat. 2=Print to hint box. Print a message when incapacitated that Pills/Adrenaline can be used to heal/revive.", CVAR_FLAGS);
-	g_hCvarFriendly =		CreateConVar(	"l4d_incapped_weapons_heal_friendly",	"1.0",					"0.0=None. 1.0=Default damage. Scales an incapped Survivors friendly fire damage to other Survivors. Multiplied against the games survivor_friendly_fire* cvars.", CVAR_FLAGS);
 
 	if( g_bLeft4Dead2 )
 	{
