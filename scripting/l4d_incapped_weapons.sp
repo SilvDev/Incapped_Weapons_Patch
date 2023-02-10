@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.24"
+#define PLUGIN_VERSION 		"1.25"
 
 /*=======================================================================================
 	Plugin Info:
@@ -31,6 +31,9 @@
 
 ========================================================================================
 	Change Log:
+
+1.25 (10-Feb-2023)
+	- Fixed error when "CanDeploy" is already patched, for whatever reason. Thanks to "knifeeeee" for reporting.
 
 1.24 (24-Jan-2023)
 	- Added cvar "l4d_incapped_weapons_friendly" to scale friendly fire damage from incapped Survivors. Requested by "choppledpickusfungus".
@@ -284,7 +287,7 @@ public void OnPluginStart()
 		g_ByteSaved_Deploy.Push(LoadFromAddress(g_Address_Deploy + view_as<Address>(i), NumberType_Int8));
 	}
 
-	if( g_ByteSaved_Deploy.Get(0) != iByteMatch ) SetFailState("Failed to load 'CanDeploy', byte mis-match @ %d (0x%02X != 0x%02X)", iOffset, g_ByteSaved_Deploy.Get(0), iByteMatch);
+	if( g_ByteSaved_Deploy.Get(0) != iByteMatch && g_ByteSaved_Deploy.Get(0) != 90 && g_ByteSaved_Deploy.Get(1) != 90 ) SetFailState("Failed to load 'CanDeploy', byte mis-match @ %d (0x%02X != 0x%02X)", iOffset, g_ByteSaved_Deploy.Get(0), iByteMatch);
 
 
 
