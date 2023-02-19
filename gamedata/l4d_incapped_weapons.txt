@@ -45,6 +45,18 @@
 					"signature"	"CTerrorPlayer::OnIncapacitatedAsSurvivor"
 				}
 			}
+
+			"FireBullet"
+			{
+				"windows"
+				{
+					"signature" "CTerrorPlayer::FireBullet"
+				}
+				"linux"
+				{
+					"signature"	"CTerrorPlayer::FireBullet"
+				}
+			}
 		}
 
 		"Offsets"
@@ -79,6 +91,22 @@
 			{
 				"windows"		"90"
 				"linux"			"24"
+			}
+
+			"FireBullet_Offset" // The line that reads the "m_isIncapacitated" netprop
+			{
+				"windows"		"969"
+				"linux"			"8289"
+			}
+			"FireBullet_Byte"
+			{
+				"windows"		"116" // 0x74
+				"linux"			"139" // 0x8B
+			}
+			"FireBullet_Count"
+			{
+				"windows"		"1"
+				"linux"			"19"
 			}
 		}
 
@@ -116,6 +144,16 @@
 				"windows"		"\x2A\x2A\x2A\x2A\x2A\x2A\x2A\x2A\x2A\x2A\xD9\x2A\x2A\x57\x8B\x2A\x2A\xD9\x2A\x2A\x8B\x2A\x2A\x2A\x2A\x2A\x8B\x2A\x89\x2A\x2A\x8B"
 				/* ? ? ? ? ? ? ? ? ? ? D9 ? ? 57 8B ? ? D9 ? ? 8B ? ? ? ? ? 8B ? 89 ? ? 8B */
 				/* Search: "pills_used_fail" */
+			}
+
+			/* CTerrorPlayer::FireBullet(Vector, QAngle const&, CSWeaponID, int) */
+			"CTerrorPlayer::FireBullet"
+			{
+				"library"	"server"
+				"linux"		"@_ZN13CTerrorPlayer10FireBulletE6VectorRK6QAngle10CSWeaponIDi"
+				"windows"	"\x2A\x2A\x2A\x2A\x2A\x2A\x83\x2A\x2A\x83\x2A\x2A\x55\x8B\x2A\x2A\x89\x2A\x2A\x2A\x8B\x2A\x81\x2A\x2A\x2A\x2A\x2A\xA1\x2A\x2A\x2A\x2A\x33\x2A\x89\x2A\x2A\x8B\x2A\x2A\x56\x8B\x2A\x8B\x2A\x2A\x89\x2A\x2A\x89\x2A\x2A\x2A\x2A\x2A\x85"
+				/* ? ? ? ? ? ? 83 ? ? 83 ? ? 55 8B ? ? 89 ? ? ? 8B ? 81 ? ? ? ? ? A1 ? ? ? ? 33 ? 89 ? ? 8B ? ? 56 8B ? 8B ? ? 89 ? ? 89 ? ? ? ? ? 85 */
+				/* String "Multi-trace error: encountered a recycled entity %p (%s)!\n" */
 			}
 		}
 	}

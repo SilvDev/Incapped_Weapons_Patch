@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.25"
+#define PLUGIN_VERSION 		"1.26"
 
 /*=======================================================================================
 	Plugin Info:
@@ -31,6 +31,12 @@
 
 ========================================================================================
 	Change Log:
+
+1.26 (19-Feb-2023)
+	- Various small fixes with late loading and unloading the plugin.
+	- Fixed cvar "l4d_incapped_weapons_friendly" not correctly calculating damage applied to Survivors from weapons.
+	- L4D2: Fixed Survivors not taking damage from incapped players. Thanks to "BystanderZK" for reporting and "Marttt" for testing on Linux.
+	- L4D2: GameData file updated.
 
 1.25 (10-Feb-2023)
 	- Fixed error when "CanDeploy" is already patched, for whatever reason. Thanks to "knifeeeee" for reporting.
@@ -166,7 +172,7 @@
 #define DELAY_HINT			1.0		// Delay incapacitated event hint message
 
 
-ConVar g_hCvarAllow, g_hCvarMPGameMode, g_hCvarDifficulty, g_hCvarFriendly1, g_hCvarFriendly2, g_hCvarFriendly3, g_hCvarFriendly4, g_hCvarMaxIncap, g_hCvarIncapHealth, g_hCvarDelayAdren, g_hCvarDelayPills, g_hCvarDelayText, g_hCvarHealAdren, g_hCvarHealPills,
+ConVar g_hCvarAllow, g_hCvarMPGameMode, g_hCvarMaxIncap, g_hCvarIncapHealth, g_hCvarDelayAdren, g_hCvarDelayPills, g_hCvarDelayText, g_hCvarHealAdren, g_hCvarHealPills,
 	g_hCvarHealRevive, g_hCvarHealText, g_hCvarFriendly, g_hCvarModes, g_hCvarModesOff, g_hCvarModesTog, g_hCvarMelee, g_hCvarPist, g_hCvarRest, g_hCvarThrow;
 bool g_bTranslations, g_bMapStarted, g_bLeft4Dead2, g_bHeartbeat, g_bGrenadeFix, g_bLateLoad, g_bCvarAllow, g_bCvarThrow;
 int g_iCvarDelayText, g_iCvarMaxIncap, g_iCvarIncapHealth, g_iCvarHealAdren, g_iCvarHealPills, g_iCvarHealText, g_iCvarHealRevive, g_iCvarPist, g_iCvarMelee, g_iHint[MAXPLAYERS+1];
@@ -175,8 +181,8 @@ Handle g_hTimerUseHealth[MAXPLAYERS+1];
 Handle g_hTimerRevive[MAXPLAYERS+1];
 bool g_bHasHeal[MAXPLAYERS+1];
 
-ArrayList g_ByteSaved_Deploy, g_ByteSaved_OnIncap;
-Address g_Address_Deploy, g_Address_OnIncap;
+ArrayList g_ByteSaved_Deploy, g_ByteSaved_OnIncap, g_ByteSaved_FireBullet;
+Address g_Address_Deploy, g_Address_OnIncap, g_Address_FireBullet;
 DynamicDetour g_hDetourCanUseOnSelf;
 
 ArrayList g_aRestrict;
@@ -266,7 +272,7 @@ public void OnPluginStart()
 
 
 
-	// Patch deploy
+	// Patch deploy - To allow weapons to be equipped while incapped
 	int iOffset = GameConfGetOffset(hGameData, "CanDeploy_Offset");
 	if( iOffset == -1 ) SetFailState("Failed to load \"CanDeploy_Offset\" offset.");
 
@@ -291,9 +297,9 @@ public void OnPluginStart()
 
 
 
-	// Patch melee
 	if( g_bLeft4Dead2 )
 	{
+		// Patch melee - To allow melee weapons to be used while incapped
 		iOffset = GameConfGetOffset(hGameData, "OnIncap_Offset");
 		if( iOffset == -1 ) SetFailState("Failed to load \"OnIncap_Offset\" offset.");
 
@@ -315,6 +321,31 @@ public void OnPluginStart()
 		}
 
 		if( g_ByteSaved_OnIncap.Get(0) != iByteMatch ) SetFailState("Failed to load 'OnIncap', byte mis-match @ %d (0x%02X != 0x%02X)", iOffset, g_ByteSaved_OnIncap.Get(0), iByteMatch);
+
+
+
+		// Patch FireBullet - To allow shooting Survivors while incapped
+		iOffset = GameConfGetOffset(hGameData, "FireBullet_Offset");
+		if( iOffset == -1 ) SetFailState("Failed to load \"FireBullet_Offset\" offset.");
+
+		iByteMatch = GameConfGetOffset(hGameData, "FireBullet_Byte");
+		if( iByteMatch == -1 ) SetFailState("Failed to load \"FireBullet_Byte\" byte.");
+
+		iByteCount = GameConfGetOffset(hGameData, "FireBullet_Count");
+		if( iByteCount == -1 ) SetFailState("Failed to load \"FireBullet_Count\" count.");
+
+		g_Address_FireBullet = GameConfGetAddress(hGameData, "FireBullet");
+		if( !g_Address_FireBullet ) SetFailState("Failed to load \"FireBullet\" address.");
+
+		g_Address_FireBullet += view_as<Address>(iOffset);
+		g_ByteSaved_FireBullet = new ArrayList();
+
+		for( int i = 0; i < iByteCount; i++ )
+		{
+			g_ByteSaved_FireBullet.Push(LoadFromAddress(g_Address_FireBullet + view_as<Address>(i), NumberType_Int8));
+		}
+
+		if( g_ByteSaved_FireBullet.Get(0) != iByteMatch ) SetFailState("Failed to load 'FireBullet', byte mis-match @ %d (0x%02X != 0x%02X)", iOffset, g_ByteSaved_FireBullet.Get(0), iByteMatch);
 	}
 
 
@@ -350,7 +381,7 @@ public void OnPluginStart()
 	g_hCvarDelayPills =		CreateConVar(	"l4d_incapped_weapons_delay_pills",		"5.0",					"0.0=Off. How many seconds a player must wait after using Pills to be revived.", CVAR_FLAGS);
 	g_hCvarDelayText =		CreateConVar(	"l4d_incapped_weapons_delay_text",		"2",					"0=Off. 1=Print to chat. 2=Print to hint box. Display to player how long until they are revived, when using a _delay cvar.", CVAR_FLAGS);
 
-	g_hCvarFriendly =		CreateConVar(	"l4d_incapped_weapons_friendly",		"1.0",					"0.0=None. 1.0=Default damage. Scales an incapped Survivors friendly fire damage to other Survivors. Multiplied against the games survivor_friendly_fire* cvars.", CVAR_FLAGS);
+	g_hCvarFriendly =		CreateConVar(	"l4d_incapped_weapons_friendly",		"1.0",					"0.0=None. 1.0=Default damage. Scales an incapped Survivors friendly fire damage to other Survivors.", CVAR_FLAGS);
 
 	if( g_bLeft4Dead2 )
 		g_hCvarHealAdren =	CreateConVar(	"l4d_incapped_weapons_heal_adren",		"50",					"-1=Revive player. 0=Off. How much to heal a player when they use Adrenaline whilst incapped.", CVAR_FLAGS);
@@ -375,17 +406,7 @@ public void OnPluginStart()
 	g_hCvarMaxIncap = FindConVar("survivor_max_incapacitated_count");
 	g_hCvarIncapHealth = FindConVar("survivor_incap_health");
 	g_hCvarMPGameMode = FindConVar("mp_gamemode");
-	g_hCvarDifficulty = FindConVar("z_difficulty");
-	g_hCvarFriendly1 = FindConVar("survivor_friendly_fire_factor_easy");
-	g_hCvarFriendly2 = FindConVar("survivor_friendly_fire_factor_normal");
-	g_hCvarFriendly3 = FindConVar("survivor_friendly_fire_factor_hard");
-	g_hCvarFriendly4 = FindConVar("survivor_friendly_fire_factor_expert");
 
-	g_hCvarDifficulty.AddChangeHook(ConVarChanged_Cvars);
-	g_hCvarFriendly1.AddChangeHook(ConVarChanged_Cvars);
-	g_hCvarFriendly2.AddChangeHook(ConVarChanged_Cvars);
-	g_hCvarFriendly3.AddChangeHook(ConVarChanged_Cvars);
-	g_hCvarFriendly4.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarFriendly.AddChangeHook(ConVarChanged_Cvars);
 
 	g_hCvarMPGameMode.AddChangeHook(ConVarChanged_Allow);
@@ -483,43 +504,65 @@ public void OnPluginStart()
 	// ====================================================================================================
 	if( g_bLateLoad )
 	{
-		GetCvars();
+		IsAllowed();
 
 		g_bHeartbeat = LibraryExists("l4d_heartbeat");
 
-		int weapon;
-
-		for( int i = 1; i <= MaxClients; i++ )
+		if( g_bCvarAllow )
 		{
-			if( IsClientInGame(i) && GetClientTeam(i) == 2 && IsPlayerAlive(i) && GetEntProp(i, Prop_Send, "m_isIncapacitated", 1) && GetEntProp(i, Prop_Send, "m_isHangingFromLedge", 1) == 0 )
+			int weapon;
+
+			for( int i = 1; i <= MaxClients; i++ )
 			{
-				SDKHook(i, SDKHook_WeaponCanSwitchTo, CanSwitchTo);
-				
-				weapon = GetEntPropEnt(i, Prop_Send, "m_hActiveWeapon");
-				if( weapon != -1 ) CanSwitchTo(i, weapon);
-
-				if( (!g_bCvarThrow || g_iCvarHealAdren || g_iCvarHealPills) && !IsFakeClient(i) )
+				if( IsClientInGame(i) && GetClientTeam(i) == 2 && IsPlayerAlive(i) && GetEntProp(i, Prop_Send, "m_isIncapacitated", 1) && GetEntProp(i, Prop_Send, "m_isHangingFromLedge", 1) == 0 )
 				{
-					// Heal with Pills/Adrenaline
-					if( !g_bLeft4Dead2 && (g_iCvarHealPills || g_iCvarHealAdren) )
-					{
-						SDKHook(i, SDKHook_PreThink, OnThinkPre);
-					}
+					SDKHook(i, SDKHook_WeaponCanSwitchTo, CanSwitchTo);
+					
+					weapon = GetEntPropEnt(i, Prop_Send, "m_hActiveWeapon");
+					if( weapon != -1 ) CanSwitchTo(i, weapon);
 
-					// Prevent standing up animation when throwing grenades, or hook healing in L4D2
-					if( !g_bCvarThrow || g_bLeft4Dead2 ) // L4D2 uses anim hook for detecting pills, L4D1 uses the PreThink
+					if( (!g_bCvarThrow || g_iCvarHealAdren || g_iCvarHealPills) && !IsFakeClient(i) )
 					{
-						AnimHookEnable(i, OnAnimPre);
+						// Heal with Pills/Adrenaline
+						if( !g_bLeft4Dead2 && (g_iCvarHealPills || g_iCvarHealAdren) )
+						{
+							SDKHook(i, SDKHook_PreThink, OnThinkPre);
+						}
+
+						// Prevent standing up animation when throwing grenades, or hook healing in L4D2
+						if( !g_bCvarThrow || g_bLeft4Dead2 ) // L4D2 uses anim hook for detecting pills, L4D1 uses the PreThink
+						{
+							AnimHookEnable(i, OnAnimPre);
+						}
 					}
 				}
 			}
 		}
 	}
+
+	AddCommandListener(CommandListenerGive, "give");
+}
+
+Action CommandListenerGive(int client, const char[] command, int args)
+{
+	if( g_bCvarAllow && args > 0 )
+	{
+		char buffer[8];
+		GetCmdArg(1, buffer, sizeof(buffer));
+
+		if( strcmp(buffer, "health", false) == 0 )
+		{
+			DamageHook(true);
+		}
+	}
+
+	return Plugin_Continue;
 }
 
 public void OnPluginEnd()
 {
 	PatchAddress(false);
+	PatchBullet(false);
 	PatchMelee(false);
 }
 
@@ -546,6 +589,14 @@ public void OnMapEnd()
 
 	for( int i = 1; i <= MaxClients; i++ )
 		ClearVars(i);
+}
+
+public void OnClientPutInServer(int client)
+{
+	if( g_bCvarAllow )
+	{
+		DamageHook(true);
+	}
 }
 
 public void OnClientDisconnect(int client)
@@ -599,23 +650,14 @@ void GetCvars()
 	{
 		g_iCvarPist = g_hCvarPist.IntValue;
 		g_iCvarMelee = g_hCvarMelee.IntValue;
-		PatchMelee(g_iCvarPist == 0);
 
-		if( g_bCvarAllow )
-			DamageHook(true);
-		else
-			DamageHook(false);
+		PatchBullet(g_bCvarAllow && g_fCvarFriendly != 0.0);
+		PatchMelee(g_bCvarAllow && g_iCvarPist == 0);
+		DamageHook(g_bCvarAllow);
 	}
 
-	// Friendly fire by difficulty
-	char sTemp[128];
-	g_hCvarDifficulty.GetString(sTemp, sizeof(sTemp));
-	if( strncmp(sTemp, "e", 1, false) == 0 )			g_fCvarFriendly *= g_hCvarFriendly1.FloatValue;
-	else if( strncmp(sTemp, "n", 1, false) == 0 )		g_fCvarFriendly *= g_hCvarFriendly2.FloatValue;
-	else if( strncmp(sTemp, "h", 1, false) == 0 )		g_fCvarFriendly *= g_hCvarFriendly3.FloatValue;
-	else if( strncmp(sTemp, "i", 1, false) == 0 )		g_fCvarFriendly *= g_hCvarFriendly4.FloatValue;
-
 	// Add weapon IDs to array
+	char sTemp[128];
 	g_hCvarRest.GetString(sTemp, sizeof(sTemp));
 
 	delete g_aRestrict;
@@ -646,10 +688,10 @@ void IsAllowed()
 	{
 		g_bCvarAllow = true;
 		PatchAddress(true);
+		PatchBullet(g_fCvarFriendly != 0.0);
 		PatchMelee(g_iCvarPist == 0);
 		HookEvents();
 		DetourAdd();
-
 		DamageHook(true);
 	}
 
@@ -657,11 +699,11 @@ void IsAllowed()
 	{
 		g_bCvarAllow = false;
 		PatchAddress(false);
+		PatchBullet(false);
 		PatchMelee(false);
 		UnhookEvents();
 		DetourRem();
 		ResetPlugin();
-
 		DamageHook(false);
 	}
 }
@@ -820,14 +862,14 @@ bool ValidateWeapon(int client, int weapon)
 
 	if( g_bLeft4Dead2 )
 	{
-		if( index == 15 || index == 23 )
+		if( index == 15 || index == 23 ) // Pills / Adren
 			g_bHasHeal[client] = true;
 		else
 			g_bHasHeal[client] = false;
 	}
 	else
 	{
-		g_bHasHeal[client] = index == 12;
+		g_bHasHeal[client] = index == 12; // Pills
 	}
 
 	if( index != 0 && g_aRestrict.FindValue(index) == -1 )
@@ -934,6 +976,8 @@ void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast)
 	{
 		ClearVars(client);
 
+		DamageHook(true);
+
 		SDKUnhook(client, SDKHook_PreThink, OnThinkPre);
 		SDKUnhook(client, SDKHook_WeaponCanSwitchTo, CanSwitchTo);
 	}
@@ -989,6 +1033,9 @@ void ResetPlugin()
 		{
 			AnimHookDisable(i, OnAnimPre);
 
+			ClearVars(i);
+
+			SDKUnhook(i, SDKHook_PreThink, OnThinkPre);
 			SDKUnhook(i, SDKHook_WeaponCanSwitchTo, CanSwitchTo);
 		}
 	}
@@ -999,9 +1046,12 @@ void ResetPlugin()
 // ====================================================================================================
 //					DAMAGE HOOKS
 // ====================================================================================================
-// Hook players OnTakeDamage if someone is incapped - to block melee weapon damage to survivors
+// Hook players OnTakeDamage if someone is incapped - to block melee weapon damage to survivors, or modify weapon damage inflicted on Survivors
 void DamageHook(bool enable)
 {
+	// Only enable under these conditions
+	if( g_fCvarFriendly == 1.0 && (!g_bLeft4Dead2 || g_iCvarPist != 0 || g_iCvarMelee != 0) ) return;
+
 	bool incapped;
 
 	// Check someone is incapped
@@ -1025,16 +1075,18 @@ void DamageHook(bool enable)
 			SDKUnhook(i, SDKHook_OnTakeDamageAlive, OnTakeDamage);
 
 			if( enable && incapped && GetClientTeam(i) == 2 && IsPlayerAlive(i) )
+			{
 				SDKHook(i, SDKHook_OnTakeDamageAlive, OnTakeDamage);
+			}
 		}
 	}
 }
 
 Action OnTakeDamage(int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon, float damageForce[3], float damagePosition[3])
 {
-	if( victim > 0 && victim <= MaxClients && attacker > 0 && attacker <= MaxClients && inflictor > MaxClients && GetClientTeam(victim) == 2 && GetClientTeam(attacker) == 2 && GetEntProp(attacker, Prop_Send, "m_isIncapacitated", 1) && GetEntProp(attacker, Prop_Send, "m_isHangingFromLedge", 1) == 0 )
+	if( victim > 0 && victim <= MaxClients && attacker > 0 && attacker <= MaxClients && GetClientTeam(victim) == 2 && GetClientTeam(attacker) == 2 && GetEntProp(attacker, Prop_Send, "m_isIncapacitated", 1) && GetEntProp(attacker, Prop_Send, "m_isHangingFromLedge", 1) == 0 )
 	{
-		if( g_bLeft4Dead2 && g_iCvarPist == 0 && g_iCvarMelee == 0 && IsValidEntity(inflictor) )
+		if( g_bLeft4Dead2 && g_iCvarPist == 0 && g_iCvarMelee == 0 && inflictor > MaxClients && IsValidEntity(inflictor) )
 		{
 			static char classname[16];
 			GetEdictClassname(inflictor, classname, sizeof(classname));
@@ -1080,14 +1132,14 @@ Action CanSwitchTo(int client, int weapon)
 
 	if( g_bLeft4Dead2 )
 	{
-		if( index == 15 || index == 23 )
+		if( index == 15 || index == 23 ) // Pills / Adren
 			g_bHasHeal[client] = true;
 		else
 			g_bHasHeal[client] = false;
 	}
 	else
 	{
-		g_bHasHeal[client] = index == 12;
+		g_bHasHeal[client] = index == 12; // Pills
 	}
 
 	return Plugin_Continue;
@@ -1431,7 +1483,7 @@ void RevivePlayer(int client, bool pills)
 // ====================================================================================================
 public void OnEntityCreated(int entity, const char[] classname)
 {
-	if( !g_bGrenadeFix && strcmp(classname, "pipe_bomb_projectile") == 0 )
+	if( g_bCvarAllow && !g_bGrenadeFix && strcmp(classname, "pipe_bomb_projectile") == 0 )
 	{
 		RequestFrame(OnFrameSpawn, EntIndexToEntRef(entity));
 	}
@@ -1548,9 +1600,9 @@ MRESReturn CPainPills_PrimaryAttack(int pThis, DHookReturn hReturn, DHookParam h
 
 
 // ====================================================================================================
-//					PATCH
+//					PATCHES
 // ====================================================================================================
-void PatchAddress(int patch)
+void PatchAddress(bool patch)
 {
 	static bool patched;
 
@@ -1579,7 +1631,38 @@ void PatchAddress(int patch)
 	}
 }
 
-void PatchMelee(int patch)
+void PatchBullet(bool patch)
+{
+	if( !g_bLeft4Dead2 ) return; // L4D1 already allows incapped Survivors to damage other Survivors
+
+	static bool patched;
+
+	if( !patched && patch )
+	{
+		patched = true;
+
+		int len = g_ByteSaved_FireBullet.Length;
+		for( int i = 0; i < len; i++ )
+		{
+			if( len == 1 )
+				StoreToAddress(g_Address_FireBullet + view_as<Address>(i), 0x75, NumberType_Int8); // 0x75 JNZ (jump short if non zero) to 0x78 JS (jump short if sign) - always jump
+			else
+				StoreToAddress(g_Address_FireBullet + view_as<Address>(i), 0x90, NumberType_Int8);
+		}
+	}
+	else if( patched && !patch )
+	{
+		patched = false;
+
+		int len = g_ByteSaved_FireBullet.Length;
+		for( int i = 0; i < len; i++ )
+		{
+			StoreToAddress(g_Address_FireBullet + view_as<Address>(i), g_ByteSaved_FireBullet.Get(i), NumberType_Int8);
+		}
+	}
+}
+
+void PatchMelee(bool patch)
 {
 	if( !g_bLeft4Dead2 ) return;
 
