@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.26"
+#define PLUGIN_VERSION 		"1.27"
 
 /*=======================================================================================
 	Plugin Info:
@@ -31,6 +31,10 @@
 
 ========================================================================================
 	Change Log:
+
+1.27 (20-Feb-2023)
+	- L4D2: Fixed Survivors not taking damage from incapped players when reviving them. Thanks to "Lux" and "Psyk0tik" for help.
+	- L4D2: GameData file updated.
 
 1.26 (19-Feb-2023)
 	- Various small fixes with late loading and unloading the plugin.
@@ -183,7 +187,7 @@ bool g_bHasHeal[MAXPLAYERS+1];
 
 ArrayList g_ByteSaved_Deploy, g_ByteSaved_OnIncap, g_ByteSaved_FireBullet;
 Address g_Address_Deploy, g_Address_OnIncap, g_Address_FireBullet;
-DynamicDetour g_hDetourCanUseOnSelf;
+DynamicDetour g_hDetourFireBullet, g_hDetourCanUseOnSelf;
 
 ArrayList g_aRestrict;
 StringMap g_aWeaponIDs;
@@ -355,6 +359,9 @@ public void OnPluginStart()
 	// ====================================================================================================
 	if( g_bLeft4Dead2 )
 	{
+		g_hDetourFireBullet = DynamicDetour.FromConf(hGameData, "IW::CTerrorGun::FireBullet");
+		if( !g_hDetourFireBullet ) SetFailState("Failed to find \"CTerrorGun::FireBullet\" signature.");
+
 		g_hDetourCanUseOnSelf = DynamicDetour.FromConf(hGameData, "IW::CPainPills::CanUseOnSelf");
 		if( !g_hDetourCanUseOnSelf ) SetFailState("Failed to find \"CPainPills::CanUseOnSelf\" signature.");
 	}
@@ -1545,6 +1552,12 @@ void DetourAdd()
 {
 	if( g_bLeft4Dead2 )
 	{
+		if( !g_hDetourFireBullet.Enable(Hook_Pre, CTerrorGun_FireBullet_Pre) )
+			SetFailState("Failed to detour \"CTerrorGun::FireBullet\" pre.");
+
+		if( !g_hDetourFireBullet.Enable(Hook_Post, CTerrorGun_FireBullet_Post) )
+			SetFailState("Failed to detour \"CTerrorGun::FireBullet\" post.");
+
 		if( !g_hDetourCanUseOnSelf.Enable(Hook_Pre, CPainPills_CanUseOnSelf) )
 			SetFailState("Failed to detour \"CPainPills::CanUseOnSelf\".");
 	}
@@ -1559,6 +1572,12 @@ void DetourRem()
 {
 	if( g_bLeft4Dead2 )
 	{
+		if( !g_hDetourFireBullet.Disable(Hook_Pre, CTerrorGun_FireBullet_Pre) )
+			SetFailState("Failed to detour \"CTerrorGun::FireBullet\" pre.");
+
+		if( !g_hDetourFireBullet.Disable(Hook_Post, CTerrorGun_FireBullet_Post) )
+			SetFailState("Failed to detour \"CTerrorGun::FireBullet\" post.");
+
 		if( !g_hDetourCanUseOnSelf.Disable(Hook_Pre, CPainPills_CanUseOnSelf) )
 			SetFailState("Failed to remove detour \"CPainPills::CanUseOnSelf\".");
 	}
@@ -1567,6 +1586,38 @@ void DetourRem()
 		if( !g_hDetourCanUseOnSelf.Disable(Hook_Pre, CPainPills_PrimaryAttack) )
 			SetFailState("Failed to remove detour \"CPainPills::PrimaryAttack\".");
 	}
+}
+
+int g_iReviveOwner, g_iBulletClient;
+MRESReturn CTerrorGun_FireBullet_Pre(int pThis)
+{
+	g_iReviveOwner = -1;
+
+	if( pThis > MaxClients && IsValidEntity(pThis) )
+	{
+		int client = GetEntPropEnt(pThis, Prop_Send, "m_hOwnerEntity");
+		if( client > 0 && client <= MaxClients )
+		{
+			g_iReviveOwner = GetEntProp(client, Prop_Send, "m_reviveOwner");
+			if( g_iReviveOwner != -1 )
+			{
+				g_iBulletClient = client;
+				SetEntProp(client, Prop_Send, "m_reviveOwner", -1);
+			}
+		}
+	}
+
+	return MRES_Ignored;
+}
+
+MRESReturn CTerrorGun_FireBullet_Post(int pThis)
+{
+	if( g_iReviveOwner != -1 )
+	{
+		SetEntProp(g_iBulletClient, Prop_Send, "m_reviveOwner", g_iReviveOwner);
+	}
+
+	return MRES_Ignored;
 }
 
 MRESReturn CPainPills_CanUseOnSelf(int pThis, DHookReturn hReturn, DHookParam hParams)
