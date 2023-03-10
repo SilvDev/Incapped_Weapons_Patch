@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.27"
+#define PLUGIN_VERSION 		"1.28"
 
 /*=======================================================================================
 	Plugin Info:
@@ -31,6 +31,9 @@
 
 ========================================================================================
 	Change Log:
+
+1.28 (10-Mar-2023)
+	- L4D2: Fixed grenade throwing animation not being blocked. Thanks to "BystanderZK" for reporting.
 
 1.27 (20-Feb-2023)
 	- L4D2: Fixed Survivors not taking damage from incapped players when reviving them. Thanks to "Lux" and "Psyk0tik" for help.
@@ -222,10 +225,6 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 		return APLRes_SilentFailure;
 	}
 
-	MarkNativeAsOptional("AnimHookEnable");
-	MarkNativeAsOptional("AnimHookDisable");
-	MarkNativeAsOptional("L4D2_UseAdrenaline");
-	MarkNativeAsOptional("L4D_ReviveSurvivor");
 	MarkNativeAsOptional("Heartbeat_GetRevives");
 	MarkNativeAsOptional("Heartbeat_SetRevives");
 
@@ -1178,39 +1177,39 @@ void OnThinkPre(int client)
 // Detect pills/adrenaline use to heal players and detect grenade throwing
 Action OnAnimPre(int client, int &anim)
 {
-	if( g_bHasHeal[client] )
+	if( g_bLeft4Dead2 )
 	{
-		if( g_bLeft4Dead2 )
+		switch( anim )
 		{
-			switch( anim )
+			case L4D2_ACT_TERROR_USE_PILLS:
 			{
-				case L4D2_ACT_TERROR_USE_PILLS:
+				if( g_iCvarHealPills && g_bHasHeal[client] )
 				{
-					if( g_iCvarHealPills )
-					{
-						HealSetup(client, true);
-					}
+					HealSetup(client, true);
 				}
+			}
 
-				case L4D2_ACT_TERROR_USE_ADRENALINE:
+			case L4D2_ACT_TERROR_USE_ADRENALINE:
+			{
+				if( g_iCvarHealAdren && g_bHasHeal[client] )
 				{
-					if( g_iCvarHealAdren )
-					{
-						HealSetup(client, false);
-					}
+					HealSetup(client, false);
 				}
+			}
 
-				case L4D2_ACT_PRIMARYATTACK_GREN1_IDLE, L4D2_ACT_PRIMARYATTACK_GREN2_IDLE:
+			case L4D2_ACT_PRIMARYATTACK_GREN1_IDLE, L4D2_ACT_PRIMARYATTACK_GREN2_IDLE:
+			{
+				if( !g_bCvarThrow )
 				{
-					if( !g_bCvarThrow )
-					{
-						anim = L4D2_ACT_IDLE_INCAP_PISTOL;
-						return Plugin_Changed;
-					}
+					anim = L4D2_ACT_IDLE_INCAP_PISTOL;
+					return Plugin_Changed;
 				}
 			}
 		}
-		else
+	}
+	else
+	{
+		if( g_bHasHeal[client] )
 		{
 			switch( anim )
 			{
