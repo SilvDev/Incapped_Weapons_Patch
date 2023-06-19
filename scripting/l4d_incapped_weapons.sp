@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.28"
+#define PLUGIN_VERSION 		"1.29"
 
 /*=======================================================================================
 	Plugin Info:
@@ -31,6 +31,9 @@
 
 ========================================================================================
 	Change Log:
+
+1.29 (19-Jun-2023)
+	- Fixed "CanDeploy" byte mis-match error. Thanks to "Mika Misori" for reporting.
 
 1.28 (10-Mar-2023)
 	- L4D2: Fixed grenade throwing animation not being blocked. Thanks to "BystanderZK" for reporting.
@@ -296,7 +299,10 @@ public void OnPluginStart()
 		g_ByteSaved_Deploy.Push(LoadFromAddress(g_Address_Deploy + view_as<Address>(i), NumberType_Int8));
 	}
 
-	if( g_ByteSaved_Deploy.Get(0) != iByteMatch && g_ByteSaved_Deploy.Get(0) != 90 && g_ByteSaved_Deploy.Get(1) != 90 ) SetFailState("Failed to load 'CanDeploy', byte mis-match @ %d (0x%02X != 0x%02X)", iOffset, g_ByteSaved_Deploy.Get(0), iByteMatch);
+	if( g_ByteSaved_Deploy.Get(0) != iByteMatch )
+	{
+		if( g_ByteSaved_Deploy.Get(0) != (iByteCount == 1 ? 0x78 : 0x90) ) SetFailState("Failed to load 'CanDeploy', byte mis-match @ %d (0x%02X != 0x%02X)", iOffset, g_ByteSaved_Deploy.Get(0), iByteMatch);
+	}
 
 
 
