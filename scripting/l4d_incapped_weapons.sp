@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.29"
+#define PLUGIN_VERSION 		"1.30"
 
 /*=======================================================================================
 	Plugin Info:
@@ -31,6 +31,10 @@
 
 ========================================================================================
 	Change Log:
+
+1.30 (18-Aug-2023)
+	- Added cvar "l4d_incapped_weapons_health" to set a players main health when they revive themselves. Requested by "Shao".
+	- Now sets the players temporary health on revive to "survivor_revive_health" games cvar value.
 
 1.29 (19-Jun-2023)
 	- Fixed "CanDeploy" byte mis-match error. Thanks to "Mika Misori" for reporting.
@@ -182,10 +186,10 @@
 #define DELAY_HINT			1.0		// Delay incapacitated event hint message
 
 
-ConVar g_hCvarAllow, g_hCvarMPGameMode, g_hCvarMaxIncap, g_hCvarIncapHealth, g_hCvarDelayAdren, g_hCvarDelayPills, g_hCvarDelayText, g_hCvarHealAdren, g_hCvarHealPills,
+ConVar g_hCvarAllow, g_hCvarMPGameMode, g_hCvarMaxIncap, g_hCvarIncapHealth, g_hCvarReviveHealth, g_hCvarReviveTemp, g_hCvarDelayAdren, g_hCvarDelayPills, g_hCvarDelayText, g_hCvarHealAdren, g_hCvarHealPills,
 	g_hCvarHealRevive, g_hCvarHealText, g_hCvarFriendly, g_hCvarModes, g_hCvarModesOff, g_hCvarModesTog, g_hCvarMelee, g_hCvarPist, g_hCvarRest, g_hCvarThrow;
 bool g_bTranslations, g_bMapStarted, g_bLeft4Dead2, g_bHeartbeat, g_bGrenadeFix, g_bLateLoad, g_bCvarAllow, g_bCvarThrow;
-int g_iCvarDelayText, g_iCvarMaxIncap, g_iCvarIncapHealth, g_iCvarHealAdren, g_iCvarHealPills, g_iCvarHealText, g_iCvarHealRevive, g_iCvarPist, g_iCvarMelee, g_iHint[MAXPLAYERS+1];
+int g_iCvarDelayText, g_iCvarMaxIncap, g_iCvarIncapHealth, g_iCvarReviveHealth, g_iCvarReviveTemp, g_iCvarHealAdren, g_iCvarHealPills, g_iCvarHealText, g_iCvarHealRevive, g_iCvarPist, g_iCvarMelee, g_iHint[MAXPLAYERS+1];
 float g_fCvarDelayAdren, g_fCvarDelayPills, g_fCvarFriendly, g_fReviveTimer[MAXPLAYERS+1];
 Handle g_hTimerUseHealth[MAXPLAYERS+1];
 Handle g_hTimerRevive[MAXPLAYERS+1];
@@ -410,12 +414,14 @@ public void OnPluginStart()
 		g_hCvarRest =		CreateConVar(	"l4d_incapped_weapons_restrict",		"8",					"Empty string to allow all. Prevent these weapon/item IDs from being used while incapped. See plugin post for details.", CVAR_FLAGS);
 	}
 
+	g_hCvarReviveHealth =	CreateConVar(	"l4d_incapped_weapons_health",			"30",					"How much health to give a player when they revive themselves.", CVAR_FLAGS);
 	g_hCvarThrow =			CreateConVar(	"l4d_incapped_weapons_throw",			"0",					"0=Block grenade throwing animation to prevent standing up during throw (requires Left4DHooks plugin). 1=Allow throwing animation.", CVAR_FLAGS);
 
 	CreateConVar(							"l4d_incapped_weapons_version",			PLUGIN_VERSION,			"Incapped Weapons plugin version.", FCVAR_NOTIFY|FCVAR_DONTRECORD);
 	AutoExecConfig(true,					"l4d_incapped_weapons");
 
 	g_hCvarMaxIncap = FindConVar("survivor_max_incapacitated_count");
+	g_hCvarReviveTemp = FindConVar("survivor_revive_health");
 	g_hCvarIncapHealth = FindConVar("survivor_incap_health");
 	g_hCvarMPGameMode = FindConVar("mp_gamemode");
 
@@ -441,6 +447,8 @@ public void OnPluginStart()
 	g_hCvarHealText.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarMaxIncap.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarIncapHealth.AddChangeHook(ConVarChanged_Cvars);
+	g_hCvarReviveHealth.AddChangeHook(ConVarChanged_Cvars);
+	g_hCvarReviveTemp.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarRest.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarThrow.AddChangeHook(ConVarChanged_Cvars);
 
@@ -656,6 +664,8 @@ void GetCvars()
 	g_iCvarHealText = g_hCvarHealText.IntValue;
 	g_iCvarMaxIncap = g_hCvarMaxIncap.IntValue;
 	g_iCvarIncapHealth = g_hCvarIncapHealth.IntValue;
+	g_iCvarReviveHealth = g_hCvarReviveHealth.IntValue;
+	g_iCvarReviveTemp = g_hCvarReviveTemp.IntValue;
 	g_bCvarThrow = g_hCvarThrow.BoolValue;
 
 	if( g_bLeft4Dead2 )
@@ -1485,6 +1495,17 @@ void RevivePlayer(int client, bool pills)
 			SetEntProp(client, Prop_Send, "m_currentReviveCount", g_iCvarMaxIncap);
 			SetEntProp(client, Prop_Send, "m_isGoingToDie", 1);
 		}
+	}
+
+	if( g_iCvarReviveHealth )
+	{
+		SetEntityHealth(client, g_iCvarReviveHealth);
+	}
+
+	if( g_iCvarReviveTemp )
+	{
+		SetEntPropFloat(client, Prop_Send, "m_healthBuffer", float(g_iCvarReviveTemp));
+		SetEntPropFloat(client, Prop_Send, "m_healthBufferTime", GetGameTime());
 	}
 }
 
