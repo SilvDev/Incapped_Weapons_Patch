@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.30"
+#define PLUGIN_VERSION 		"1.31"
 
 /*=======================================================================================
 	Plugin Info:
@@ -31,6 +31,10 @@
 
 ========================================================================================
 	Change Log:
+
+1.31 (02-Oct-2023)
+	- Fixed going AFK breaking self revive. Thanks to "Automage" for reporting.
+	- Now the plugin will throw an error and prevent itself loading if any of the addresses are already patched.
 
 1.30 (18-Aug-2023)
 	- Added cvar "l4d_incapped_weapons_health" to set a players main health when they revive themselves. Requested by "Shao".
@@ -180,7 +184,7 @@
 #define PARTICLE_FUSE		"weapon_pipebomb_fuse"
 #define PARTICLE_LIGHT		"weapon_pipebomb_blinking_light"
 
-#define TIMER_REVIVE		0.2		// How often the timer ticks for delayed revive
+#define TIMER_REVIVE		0.1		// How often the timer ticks for delayed revive
 #define HEAL_ANIM_ADREN		1.3		// How long the healing animation lasts before applying the heal
 #define HEAL_ANIM_PILLS		0.6		// How long the healing animation lasts before applying the heal
 #define DELAY_HINT			1.0		// Delay incapacitated event hint message
@@ -305,7 +309,10 @@ public void OnPluginStart()
 
 	if( g_ByteSaved_Deploy.Get(0) != iByteMatch )
 	{
-		if( g_ByteSaved_Deploy.Get(0) != (iByteCount == 1 ? 0x78 : 0x90) ) SetFailState("Failed to load 'CanDeploy', byte mis-match @ %d (0x%02X != 0x%02X)", iOffset, g_ByteSaved_Deploy.Get(0), iByteMatch);
+		if( g_ByteSaved_Deploy.Get(0) == (iByteCount == 1 ? 0x78 : 0x90) )
+			SetFailState("\n==========\nPlugin prevented from loading, 'CanDeploy' address is already patched, maybe you have a duplicate copy of this plugin running.\n==========");
+		else
+			SetFailState("Failed to load 'CanDeploy', byte mis-match @ %d (0x%02X != 0x%02X)", iOffset, g_ByteSaved_Deploy.Get(0), iByteMatch);
 	}
 
 
@@ -333,7 +340,13 @@ public void OnPluginStart()
 			g_ByteSaved_OnIncap.Push(LoadFromAddress(g_Address_OnIncap + view_as<Address>(i), NumberType_Int8));
 		}
 
-		if( g_ByteSaved_OnIncap.Get(0) != iByteMatch ) SetFailState("Failed to load 'OnIncap', byte mis-match @ %d (0x%02X != 0x%02X)", iOffset, g_ByteSaved_OnIncap.Get(0), iByteMatch);
+		if( g_ByteSaved_OnIncap.Get(0) != iByteMatch )
+		{
+			if( g_ByteSaved_OnIncap.Get(0) == 0x90 )
+				SetFailState("\n==========\nPlugin prevented from loading, 'OnIncap' address is already patched, maybe you have a duplicate copy of this plugin running.\n==========");
+			else
+				SetFailState("Failed to load 'OnIncap', byte mis-match @ %d (0x%02X != 0x%02X)", iOffset, g_ByteSaved_OnIncap.Get(0), iByteMatch);
+		}
 
 
 
@@ -358,7 +371,13 @@ public void OnPluginStart()
 			g_ByteSaved_FireBullet.Push(LoadFromAddress(g_Address_FireBullet + view_as<Address>(i), NumberType_Int8));
 		}
 
-		if( g_ByteSaved_FireBullet.Get(0) != iByteMatch ) SetFailState("Failed to load 'FireBullet', byte mis-match @ %d (0x%02X != 0x%02X)", iOffset, g_ByteSaved_FireBullet.Get(0), iByteMatch);
+		if( g_ByteSaved_FireBullet.Get(0) != iByteMatch ) 
+		{
+			if( g_ByteSaved_FireBullet.Get(0) == (iByteCount == 1 ? 0x75 : 0x90) )
+				SetFailState("\n==========\nPlugin prevented from loading, 'FireBullet' address is already patched, maybe you have a duplicate copy of this plugin running.\n==========");
+			else
+				SetFailState("Failed to load 'FireBullet', byte mis-match @ %d (0x%02X != 0x%02X)", iOffset, g_ByteSaved_FireBullet.Get(0), iByteMatch);
+		}
 	}
 
 
@@ -812,6 +831,7 @@ void HookEvents()
 	HookEvent("player_spawn",				Event_PlayerSpawn);
 	HookEvent("player_death",				Event_PlayerDeath);
 	HookEvent("player_team",				Event_PlayerDeath);
+	HookEvent("bot_player_replace",			Event_Swap_User);
 	HookEvent("round_start",				Event_RoundStart,	EventHookMode_PostNoCopy);
 }
 
@@ -822,12 +842,17 @@ void UnhookEvents()
 	UnhookEvent("player_spawn",				Event_PlayerSpawn);
 	UnhookEvent("player_death",				Event_PlayerDeath);
 	UnhookEvent("player_team",				Event_PlayerDeath);
+	UnhookEvent("bot_player_replace",		Event_Swap_User);
 	UnhookEvent("round_start",				Event_RoundStart,	EventHookMode_PostNoCopy);
 }
 
 void Event_Incapped(Event event, const char[] name, bool dontBroadcast)
 {
-	int userid = event.GetInt("userid");
+	DoIncapped(event.GetInt("userid"));
+}
+
+void DoIncapped(int userid)
+{
 	int client = GetClientOfUserId(userid);
 	if( client && GetClientTeam(client) == 2 )
 	{
@@ -1018,6 +1043,17 @@ void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
 
 		SDKUnhook(client, SDKHook_PreThink, OnThinkPre);
 		SDKUnhook(client, SDKHook_WeaponCanSwitchTo, CanSwitchTo);
+	}
+}
+
+void Event_Swap_User(Event event, const char[] name, bool dontBroadcast)
+{
+	int userid = event.GetInt("player");
+	int client = GetClientOfUserId(userid);
+
+	if( GetEntProp(client, Prop_Send, "m_isIncapacitated", 1) && GetEntProp(client, Prop_Send, "m_isHangingFromLedge", 1) == 0 )
+	{
+		DoIncapped(userid);
 	}
 }
 
