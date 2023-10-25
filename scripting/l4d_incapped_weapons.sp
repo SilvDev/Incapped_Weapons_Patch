@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.31"
+#define PLUGIN_VERSION 		"1.32"
 
 /*=======================================================================================
 	Plugin Info:
@@ -32,9 +32,13 @@
 ========================================================================================
 	Change Log:
 
+1.32 (25-Oct-2023)
+	- Added cvar "l4d_incapped_weapons_revive" to put the player in 3rd person (L4D2 only) and play the revive animation. Thanks to "MasterMind420" for parts of the code and ideas.
+	- Added command "sm_incap" to incapacitated yourself or targeted players.
+
 1.31 (02-Oct-2023)
 	- Fixed going AFK breaking self revive. Thanks to "Automage" for reporting.
-	- Now the plugin will throw an error and prevent itself loading if any of the addresses are already patched.
+	- Now the plugin will throw an error and prevent itself from loading if any of the addresses are already patched.
 
 1.30 (18-Aug-2023)
 	- Added cvar "l4d_incapped_weapons_health" to set a players main health when they revive themselves. Requested by "Shao".
@@ -185,19 +189,22 @@
 #define PARTICLE_LIGHT		"weapon_pipebomb_blinking_light"
 
 #define TIMER_REVIVE		0.1		// How often the timer ticks for delayed revive
+#define TIMER_ANIM			5.0		// How long the revive animation takes
+#define TIMER_FALL			1.2		// How long falling animation takes (revive interrupt)
 #define HEAL_ANIM_ADREN		1.3		// How long the healing animation lasts before applying the heal
 #define HEAL_ANIM_PILLS		0.6		// How long the healing animation lasts before applying the heal
 #define DELAY_HINT			1.0		// Delay incapacitated event hint message
 
 
 ConVar g_hCvarAllow, g_hCvarMPGameMode, g_hCvarMaxIncap, g_hCvarIncapHealth, g_hCvarReviveHealth, g_hCvarReviveTemp, g_hCvarDelayAdren, g_hCvarDelayPills, g_hCvarDelayText, g_hCvarHealAdren, g_hCvarHealPills,
-	g_hCvarHealRevive, g_hCvarHealText, g_hCvarFriendly, g_hCvarModes, g_hCvarModesOff, g_hCvarModesTog, g_hCvarMelee, g_hCvarPist, g_hCvarRest, g_hCvarThrow;
+	g_hCvarHealRevive, g_hCvarHealText, g_hCvarFriendly, g_hCvarModes, g_hCvarModesOff, g_hCvarModesTog, g_hCvarMelee, g_hCvarPist, g_hCvarRest, g_hCvarRevive, g_hCvarThrow;
 bool g_bTranslations, g_bMapStarted, g_bLeft4Dead2, g_bHeartbeat, g_bGrenadeFix, g_bLateLoad, g_bCvarAllow, g_bCvarThrow;
-int g_iCvarDelayText, g_iCvarMaxIncap, g_iCvarIncapHealth, g_iCvarReviveHealth, g_iCvarReviveTemp, g_iCvarHealAdren, g_iCvarHealPills, g_iCvarHealText, g_iCvarHealRevive, g_iCvarPist, g_iCvarMelee, g_iHint[MAXPLAYERS+1];
+int g_iCvarDelayText, g_iCvarMaxIncap, g_iCvarIncapHealth, g_iCvarReviveHealth, g_iCvarReviveTemp, g_iCvarHealAdren, g_iCvarHealPills, g_iCvarHealText, g_iCvarHealRevive, g_iCvarPist, g_iCvarMelee, g_iCvarRevive, g_iHint[MAXPLAYERS+1];
 float g_fCvarDelayAdren, g_fCvarDelayPills, g_fCvarFriendly, g_fReviveTimer[MAXPLAYERS+1];
 Handle g_hTimerUseHealth[MAXPLAYERS+1];
 Handle g_hTimerRevive[MAXPLAYERS+1];
 bool g_bHasHeal[MAXPLAYERS+1];
+bool g_bIsPills[MAXPLAYERS+1];
 
 ArrayList g_ByteSaved_Deploy, g_ByteSaved_OnIncap, g_ByteSaved_FireBullet;
 Address g_Address_Deploy, g_Address_OnIncap, g_Address_FireBullet;
@@ -239,9 +246,9 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	MarkNativeAsOptional("Heartbeat_GetRevives");
 	MarkNativeAsOptional("Heartbeat_SetRevives");
 
-	g_bLateLoad = late;
-
 	RegPluginLibrary("l4d_incapped_weapons");
+
+	g_bLateLoad = late;
 
 	return APLRes_Success;
 }
@@ -417,6 +424,7 @@ public void OnPluginStart()
 	g_hCvarDelayText =		CreateConVar(	"l4d_incapped_weapons_delay_text",		"2",					"0=Off. 1=Print to chat. 2=Print to hint box. Display to player how long until they are revived, when using a _delay cvar.", CVAR_FLAGS);
 
 	g_hCvarFriendly =		CreateConVar(	"l4d_incapped_weapons_friendly",		"1.0",					"0.0=None. 1.0=Default damage. Scales an incapped Survivors friendly fire damage to other Survivors.", CVAR_FLAGS);
+	g_hCvarReviveHealth =	CreateConVar(	"l4d_incapped_weapons_health",			"30",					"How much main health to set on a player when they revive themselves. For temp health use the games survivor_revive_health cvar.", CVAR_FLAGS);
 
 	if( g_bLeft4Dead2 )
 		g_hCvarHealAdren =	CreateConVar(	"l4d_incapped_weapons_heal_adren",		"50",					"-1=Revive player. 0=Off. How much to heal a player when they use Adrenaline whilst incapped.", CVAR_FLAGS);
@@ -433,7 +441,7 @@ public void OnPluginStart()
 		g_hCvarRest =		CreateConVar(	"l4d_incapped_weapons_restrict",		"8",					"Empty string to allow all. Prevent these weapon/item IDs from being used while incapped. See plugin post for details.", CVAR_FLAGS);
 	}
 
-	g_hCvarReviveHealth =	CreateConVar(	"l4d_incapped_weapons_health",			"30",					"How much health to give a player when they revive themselves.", CVAR_FLAGS);
+	g_hCvarRevive =			CreateConVar(	"l4d_incapped_weapons_revive",			"",						"Play revive animation: 0=Off. 1=On and damage can stop reviving. 2=Damage will interrupt animation and restart reviving. 3=Damage does not interrupt reviving. 4=Give god mode when reviving.", CVAR_FLAGS);
 	g_hCvarThrow =			CreateConVar(	"l4d_incapped_weapons_throw",			"0",					"0=Block grenade throwing animation to prevent standing up during throw (requires Left4DHooks plugin). 1=Allow throwing animation.", CVAR_FLAGS);
 
 	CreateConVar(							"l4d_incapped_weapons_version",			PLUGIN_VERSION,			"Incapped Weapons plugin version.", FCVAR_NOTIFY|FCVAR_DONTRECORD);
@@ -469,6 +477,7 @@ public void OnPluginStart()
 	g_hCvarReviveHealth.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarReviveTemp.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarRest.AddChangeHook(ConVarChanged_Cvars);
+	g_hCvarRevive.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarThrow.AddChangeHook(ConVarChanged_Cvars);
 
 
@@ -580,6 +589,8 @@ public void OnPluginStart()
 	}
 
 	AddCommandListener(CommandListenerGive, "give");
+
+	RegAdminCmd("sm_incap", CmdIncap, ADMFLAG_ROOT, "Incapacitated a player. Usage: [#userid|name] or no args to select self.");
 }
 
 Action CommandListenerGive(int client, const char[] command, int args)
@@ -598,6 +609,54 @@ Action CommandListenerGive(int client, const char[] command, int args)
 	return Plugin_Continue;
 }
 
+Action CmdIncap(int client, int args)
+{
+	if( !client && !args )
+	{
+		ReplyToCommand(client, "Command can only be used %s", IsDedicatedServer() ? "in game on a Dedicated server." : "in chat on a Listen server.");
+		return Plugin_Handled;
+	}
+
+	if( args == 0 )
+	{
+		SDKHooks_TakeDamage(client, client, client, float(GetEntProp(client, Prop_Send, "m_iMaxHealth")));
+	}
+	else
+	{
+		char arg1[MAX_TARGET_LENGTH];
+		GetCmdArg(1, arg1, sizeof(arg1));
+
+		char target_name[MAX_TARGET_LENGTH];
+		int target_list[MAXPLAYERS], target_count;
+		bool tn_is_ml;
+
+		if( (target_count = ProcessTargetString(
+			arg1,
+			client,
+			target_list,
+			MAXPLAYERS,
+			COMMAND_FILTER_ALIVE,
+			target_name,
+			sizeof(target_name),
+			tn_is_ml)) <= 0)
+		{
+			ReplyToTargetError(client, target_count);
+			return Plugin_Handled;
+		}
+
+		int target;
+
+		for( int i = 0; i < target_count; i++ )
+		{
+			target = target_list[i];
+
+			SDKHooks_TakeDamage(target, target, target, float(GetEntProp(client, Prop_Send, "m_iMaxHealth")));
+		}
+	}
+
+	return Plugin_Handled;
+}
+
 public void OnPluginEnd()
 {
 	PatchAddress(false);
@@ -608,7 +667,7 @@ public void OnPluginEnd()
 
 
 // ====================================================================================================
-//					CVARS
+//					RESET VARS
 // ====================================================================================================
 public void OnMapStart()
 {
@@ -622,6 +681,7 @@ public void OnMapStart()
 public void OnMapEnd()
 {
 	g_bMapStarted = false;
+
 	ResetPlugin();
 
 	DamageHook(false);
@@ -648,11 +708,17 @@ void ClearVars(int client)
 	delete g_hTimerRevive[client];
 	delete g_hTimerUseHealth[client];
 
+	g_bIsPills[client] = false;
 	g_bHasHeal[client] = false;
 	g_fReviveTimer[client] = 0.0;
 	g_iHint[client] = 0;
 }
 
+
+
+// ====================================================================================================
+//					CVARS
+// ====================================================================================================
 public void OnConfigsExecuted()
 {
 	IsAllowed();
@@ -685,6 +751,7 @@ void GetCvars()
 	g_iCvarIncapHealth = g_hCvarIncapHealth.IntValue;
 	g_iCvarReviveHealth = g_hCvarReviveHealth.IntValue;
 	g_iCvarReviveTemp = g_hCvarReviveTemp.IntValue;
+	g_iCvarRevive = g_hCvarRevive.IntValue;
 	g_bCvarThrow = g_hCvarThrow.BoolValue;
 
 	if( g_bLeft4Dead2 )
@@ -827,30 +894,47 @@ void OnGamemode(const char[] output, int caller, int activator, float delay)
 void HookEvents()
 {
 	HookEvent("player_incapacitated",		Event_Incapped);
+	HookEvent("bot_player_replace",			Event_Swap_User);
 	HookEvent("revive_success",				Event_ReviveSuccess);
 	HookEvent("player_spawn",				Event_PlayerSpawn);
 	HookEvent("player_death",				Event_PlayerDeath);
 	HookEvent("player_team",				Event_PlayerDeath);
-	HookEvent("bot_player_replace",			Event_Swap_User);
 	HookEvent("round_start",				Event_RoundStart,	EventHookMode_PostNoCopy);
 }
 
 void UnhookEvents()
 {
 	UnhookEvent("player_incapacitated",		Event_Incapped);
+	UnhookEvent("bot_player_replace",		Event_Swap_User);
 	UnhookEvent("revive_success",			Event_ReviveSuccess);
 	UnhookEvent("player_spawn",				Event_PlayerSpawn);
 	UnhookEvent("player_death",				Event_PlayerDeath);
 	UnhookEvent("player_team",				Event_PlayerDeath);
-	UnhookEvent("bot_player_replace",		Event_Swap_User);
 	UnhookEvent("round_start",				Event_RoundStart,	EventHookMode_PostNoCopy);
 }
 
+
+
+// ====================================================================================================
+//					EVENTS - player_incapacitated
+// ====================================================================================================
 void Event_Incapped(Event event, const char[] name, bool dontBroadcast)
 {
 	DoIncapped(event.GetInt("userid"));
 }
 
+void Event_Swap_User(Event event, const char[] name, bool dontBroadcast)
+{
+	int userid = event.GetInt("player");
+	int client = GetClientOfUserId(userid);
+
+	if( GetEntProp(client, Prop_Send, "m_isIncapacitated", 1) && GetEntProp(client, Prop_Send, "m_isHangingFromLedge", 1) == 0 )
+	{
+		DoIncapped(userid);
+	}
+}
+
+// Incap event / take over bot
 void DoIncapped(int userid)
 {
 	int client = GetClientOfUserId(userid);
@@ -928,6 +1012,9 @@ bool ValidateWeapon(int client, int weapon)
 	return false;
 }
 
+// ====================================================================================================
+//					EVENTS - hint messages
+// ====================================================================================================
 Action TimerIncap(Handle timer, int client)
 {
 	client = GetClientOfUserId(client);
@@ -1016,6 +1103,11 @@ Action TimerIncap(Handle timer, int client)
 	return Plugin_Continue;
 }
 
+
+
+// ====================================================================================================
+//					EVENTS - reset stuff on spawn / death
+// ====================================================================================================
 void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast)
 {
 	int client = GetClientOfUserId(event.GetInt("userid"));
@@ -1027,6 +1119,8 @@ void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast)
 
 		SDKUnhook(client, SDKHook_PreThink, OnThinkPre);
 		SDKUnhook(client, SDKHook_WeaponCanSwitchTo, CanSwitchTo);
+
+		ResetHooks(client);
 	}
 }
 
@@ -1043,17 +1137,8 @@ void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
 
 		SDKUnhook(client, SDKHook_PreThink, OnThinkPre);
 		SDKUnhook(client, SDKHook_WeaponCanSwitchTo, CanSwitchTo);
-	}
-}
 
-void Event_Swap_User(Event event, const char[] name, bool dontBroadcast)
-{
-	int userid = event.GetInt("player");
-	int client = GetClientOfUserId(userid);
-
-	if( GetEntProp(client, Prop_Send, "m_isIncapacitated", 1) && GetEntProp(client, Prop_Send, "m_isHangingFromLedge", 1) == 0 )
-	{
-		DoIncapped(userid);
+		ResetHooks(client);
 	}
 }
 
@@ -1071,6 +1156,8 @@ void Event_ReviveSuccess(Event event, const char[] name, bool dontBroadcast)
 
 		SDKUnhook(client, SDKHook_PreThink, OnThinkPre);
 		SDKUnhook(client, SDKHook_WeaponCanSwitchTo, CanSwitchTo);
+
+		ResetHooks(client);
 	}
 }
 
@@ -1095,8 +1182,16 @@ void ResetPlugin()
 
 			SDKUnhook(i, SDKHook_PreThink, OnThinkPre);
 			SDKUnhook(i, SDKHook_WeaponCanSwitchTo, CanSwitchTo);
+
+			ResetHooks(i);
 		}
 	}
+}
+
+void ResetHooks(int client)
+{
+	SDKUnhook(client, SDKHook_OnTakeDamageAlive, OnTakeReviveDamage);
+	SDKUnhook(client, SDKHook_OnTakeDamageAlivePost, OnTakeReviveDamagePost);
 }
 
 
@@ -1169,7 +1264,7 @@ Action OnTakeDamage(int victim, int &attacker, int &inflictor, float &damage, in
 
 
 // ====================================================================================================
-//					RESTRICT
+//					RESTRICT WEAPONS
 // ====================================================================================================
 // Restrict certain weapons
 Action CanSwitchTo(int client, int weapon)
@@ -1206,7 +1301,7 @@ Action CanSwitchTo(int client, int weapon)
 
 
 // ====================================================================================================
-//					THINK - can use pills/adrenaline
+//					THINK (L4D1) - can use pills/adrenaline
 // ====================================================================================================
 void OnThinkPre(int client)
 {
@@ -1223,7 +1318,7 @@ void OnThinkPre(int client)
 
 
 // ====================================================================================================
-//					ANIMATION HOOK
+//					ANIMATION HOOK - taking pills/adrenaline
 // ====================================================================================================
 // Uses "Activity" numbers, which means 1 animation number is the same for all Survivors.
 // Detect pills/adrenaline use to heal players and detect grenade throwing
@@ -1265,7 +1360,7 @@ Action OnAnimPre(int client, int &anim)
 		{
 			switch( anim )
 			{
-				/* Does not work in L4D1
+				/* Does not trigger in L4D1
 				case ACT_TERROR_USE_PILLS
 				{
 					if( g_iCvarHealPills )
@@ -1295,7 +1390,7 @@ Action OnAnimPre(int client, int &anim)
 // ====================================================================================================
 //					HEAL and REVIVE
 // ====================================================================================================
-// Heal player with pills/adrenaline
+// Heal player with pills/adrenaline (triggered when player uses pills/adrenaline)
 void HealSetup(int client, bool pills)
 {
 	// Timeout to prevent spamming and fast animation
@@ -1309,29 +1404,22 @@ void HealSetup(int client, bool pills)
 
 		delete g_hTimerUseHealth[client];
 
-		if( pills )
-			g_hTimerUseHealth[client] = CreateTimer(HEAL_ANIM_PILLS, TimerPills, dPack);
-		else
-			g_hTimerUseHealth[client] = CreateTimer(HEAL_ANIM_ADREN, TimerAdren, dPack);
+		g_hTimerUseHealth[client] = CreateTimer(pills ? HEAL_ANIM_PILLS : HEAL_ANIM_ADREN, TimerUsed, dPack);
 
 		dPack.WriteCell(GetClientUserId(client));
 		dPack.WriteCell(EntIndexToEntRef(weapon));
+
+		g_bIsPills[client] = pills;
 	}
 }
 
-Action TimerAdren(Handle timer, DataPack dPack)
+Action TimerUsed(Handle timer, DataPack dPack)
 {
-	HealPlayer(dPack, false);
+	HealPlayer(dPack);
 	return Plugin_Continue;
 }
 
-Action TimerPills(Handle timer, DataPack dPack)
-{
-	HealPlayer(dPack, true);
-	return Plugin_Continue;
-}
-
-void HealPlayer(DataPack dPack, bool pills)
+void HealPlayer(DataPack dPack)
 {
 	dPack.Reset();
 
@@ -1354,52 +1442,48 @@ void HealPlayer(DataPack dPack, bool pills)
 			RemoveEntity(weapon);
 		}
 
-		// Healing
+		// Healing type
+		bool pills = g_bIsPills[client];
 		if( (pills ? g_iCvarHealPills : g_iCvarHealAdren) == -1 )
 		{
-			// Revive player
-			switch( pills )
+			// Revive player with animation
+			// 1=On and damage can stop reviving. 2=Damage will interrupt animation and restart reviving. 3=Damage does not interrupt reviving. 4=Give god mode when reviving
+			if( g_iCvarRevive )
 			{
-				case true:
-				{
-					if( g_fCvarDelayPills == 0.0 )
-					{
-						RevivePlayer(client, true);
-					}
-					else
-					{
-						if( g_fReviveTimer[client] == 0.0 )
-						{
-							g_iHint[client] = 0;
-							g_fReviveTimer[client] = g_fCvarDelayPills;
-							delete g_hTimerRevive[client];
+				if( g_bLeft4Dead2 && GetEntPropFloat(client, Prop_Send, "m_TimeForceExternalView") != 99999.3 ) // Thirdperson plugin, always stay on 3rd
+					SetEntPropFloat(client, Prop_Send, "m_TimeForceExternalView", GetGameTime() + 5.0);
 
-							DataPack dpTimer;
-							g_hTimerRevive[client] = CreateDataTimer(TIMER_REVIVE, TimerRevive, dpTimer, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
-							dpTimer.WriteCell(userid);
-							dpTimer.WriteCell(true);
-						}
-					}
+				// Player revive animation
+				SetEntPropEnt(client, Prop_Send, "m_reviveOwner", client);
+
+				// Block damage interrupting revive, etc
+				ResetHooks(client);
+
+				SDKHook(client, SDKHook_OnTakeDamageAlive, OnTakeReviveDamage);
+
+				if( g_iCvarRevive == 3 )
+					SDKHook(client, SDKHook_OnTakeDamageAlivePost, OnTakeReviveDamagePost);
+
+				// Wait for revive animation to complete
+				g_hTimerRevive[client] = CreateTimer(TIMER_ANIM, TimerAnim, GetClientUserId(client));
+			}
+			else
+			{
+				// Revive player without delay
+				if( g_fCvarDelayPills == 0.0 )
+				{
+					RevivePlayer(client, pills);
 				}
-				case false:
+				else
 				{
-					if( g_fCvarDelayAdren == 0.0 )
+					// Revive with delay
+					if( g_fReviveTimer[client] == 0.0 )
 					{
-						RevivePlayer(client, false);
-					}
-					else
-					{
-						if( g_fReviveTimer[client] == 0.0 )
-						{
-							g_iHint[client] = 0;
-							g_fReviveTimer[client] = g_fCvarDelayAdren;
-							delete g_hTimerRevive[client];
+						g_iHint[client] = 0;
+						g_fReviveTimer[client] = pills ? g_fCvarDelayPills : g_fCvarDelayAdren;
+						delete g_hTimerRevive[client];
 
-							DataPack dpTimer;
-							g_hTimerRevive[client] = CreateDataTimer(TIMER_REVIVE, TimerRevive, dpTimer, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
-							dpTimer.WriteCell(userid);
-							dpTimer.WriteCell(false);
-						}
+						g_hTimerRevive[client] = CreateTimer(TIMER_REVIVE, TimerRevive, userid, TIMER_REPEAT);
 					}
 				}
 			}
@@ -1428,12 +1512,14 @@ void HealPlayer(DataPack dPack, bool pills)
 	}
 }
 
-Action TimerRevive(Handle timer, DataPack dPack)
-{
-	dPack.Reset();
-	int client = dPack.ReadCell();
 
-	client = GetClientOfUserId(client);
+
+// ====================================================================================================
+// Revive with delay:
+// ====================================================================================================
+Action TimerRevive(Handle timer, int userid)
+{
+	int client = GetClientOfUserId(userid);
 	if( client && IsClientInGame(client) )
 	{
 		g_fReviveTimer[client] -= TIMER_REVIVE;
@@ -1492,9 +1578,7 @@ Action TimerRevive(Handle timer, DataPack dPack)
 		{
 			g_fReviveTimer[client] = 0.0;
 
-			bool pills = dPack.ReadCell();
-
-			RevivePlayer(client, pills);
+			RevivePlayer(client, g_bIsPills[client]);
 		}
 		else
 		{
@@ -1506,6 +1590,85 @@ Action TimerRevive(Handle timer, DataPack dPack)
 	return Plugin_Stop;
 }
 
+
+
+// ====================================================================================================
+// Revive with animation:
+// ====================================================================================================
+Action TimerAnim(Handle timer, int client)
+{
+	client = GetClientOfUserId(client);
+	if( client && IsClientInGame(client) )
+	{
+		SetEntPropEnt(client, Prop_Send, "m_reviveOwner", -1);
+
+		RevivePlayer(client, g_bIsPills[client]);
+	}
+
+	g_hTimerRevive[client] = null;
+	return Plugin_Stop;
+}
+
+Action OnTakeReviveDamage(int client, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon, float damageForce[3], float damagePosition[3])
+{
+	switch( g_iCvarRevive )
+	{
+		// Revive interrupts
+		case 1:
+		{
+			ResetHooks(client);
+			delete g_hTimerRevive[client];
+
+			// PrintToChatAll("Revive interrupted");
+		}
+
+		// Revive resets anim
+		case 2:
+		{
+			if( g_bLeft4Dead2 && GetEntPropFloat(client, Prop_Send, "m_TimeForceExternalView") != 99999.3 ) // Thirdperson plugin, always stay on 3rd
+				SetEntPropFloat(client, Prop_Send, "m_TimeForceExternalView", GetGameTime() + TIMER_ANIM); // 5.0 revive anim + 1.2 falling anim
+
+			// Player revive animation
+			SetEntPropEnt(client, Prop_Send, "m_reviveOwner", client);
+
+			// Wait for revive animation to complete
+			delete g_hTimerRevive[client];
+			g_hTimerRevive[client] = CreateTimer(TIMER_ANIM, TimerAnim, GetClientUserId(client));
+
+			// PrintToChatAll("Revive reset");
+		}
+
+		// Block interrupt
+		case 3:
+		{
+			SetEntProp(client, Prop_Send, "m_isHangingFromLedge", 1, 1);
+
+			// PrintToChatAll("Revive block interrupt");
+		}
+
+		// God mode
+		case 4:
+		{
+			// PrintToChatAll("Revive godmode");
+			return Plugin_Handled;
+		}
+	}
+
+	return Plugin_Continue;
+}
+
+Action OnTakeReviveDamagePost(int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon, float damageForce[3], float damagePosition[3])
+{
+	SetEntProp(victim, Prop_Send, "m_isHangingFromLedge", 0, 1);
+
+	return Plugin_Continue;
+}
+
+
+
+// ====================================================================================================
+// Revive player:
+// ====================================================================================================
 void RevivePlayer(int client, bool pills)
 {
 	L4D_ReviveSurvivor(client);
