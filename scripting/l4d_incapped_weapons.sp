@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.32"
+#define PLUGIN_VERSION 		"1.33"
 
 /*=======================================================================================
 	Plugin Info:
@@ -31,6 +31,11 @@
 
 ========================================================================================
 	Change Log:
+
+1.33 (25-Oct-2023)
+	- Now "l4d_incapped_weapons_revive" value "2" will interrupt reviving if the player tries to move left/right/forwards/backwards (forward cannot be not detected with Incapped Crawling).
+	- Fixed command "sm_incap" not incapacitating someone if they had over 100 health.
+	- Fixed being able to shoot while the revive animation was playing.
 
 1.32 (25-Oct-2023)
 	- Added cvar "l4d_incapped_weapons_revive" to put the player in 3rd person (L4D2 only) and play the revive animation. Thanks to "MasterMind420" for parts of the code and ideas.
@@ -441,7 +446,7 @@ public void OnPluginStart()
 		g_hCvarRest =		CreateConVar(	"l4d_incapped_weapons_restrict",		"8",					"Empty string to allow all. Prevent these weapon/item IDs from being used while incapped. See plugin post for details.", CVAR_FLAGS);
 	}
 
-	g_hCvarRevive =			CreateConVar(	"l4d_incapped_weapons_revive",			"3",						"Play revive animation: 0=Off. 1=On and damage can stop reviving. 2=Damage will interrupt animation and restart reviving. 3=Damage does not interrupt reviving. 4=Give god mode when reviving.", CVAR_FLAGS);
+	g_hCvarRevive =			CreateConVar(	"l4d_incapped_weapons_revive",			"3",					"Play revive animation: 0=Off. 1=On and damage can stop reviving. 2=Damage will interrupt animation and restart reviving. 3=Damage does not interrupt reviving. 4=Give god mode when reviving.", CVAR_FLAGS);
 	g_hCvarThrow =			CreateConVar(	"l4d_incapped_weapons_throw",			"0",					"0=Block grenade throwing animation to prevent standing up during throw (requires Left4DHooks plugin). 1=Allow throwing animation.", CVAR_FLAGS);
 
 	CreateConVar(							"l4d_incapped_weapons_version",			PLUGIN_VERSION,			"Incapped Weapons plugin version.", FCVAR_NOTIFY|FCVAR_DONTRECORD);
@@ -619,7 +624,7 @@ Action CmdIncap(int client, int args)
 
 	if( args == 0 )
 	{
-		SDKHooks_TakeDamage(client, client, client, float(GetEntProp(client, Prop_Send, "m_iMaxHealth")));
+		SDKHooks_TakeDamage(client, client, client, L4D_GetTempHealth(client) + float(GetClientHealth(client)));
 	}
 	else
 	{
@@ -650,7 +655,7 @@ Action CmdIncap(int client, int args)
 		{
 			target = target_list[i];
 
-			SDKHooks_TakeDamage(target, target, target, float(GetEntProp(client, Prop_Send, "m_iMaxHealth")));
+			SDKHooks_TakeDamage(target, target, target, L4D_GetTempHealth(client) + float(GetClientHealth(client)));
 		}
 	}
 
@@ -1272,6 +1277,14 @@ Action CanSwitchTo(int client, int weapon)
 	// This causes the animation to sometimes partially skip on L4D1 and doesn't seem to have any effect on L4D2, so removing.
 	// if( g_hTimerUseHealth[client] ) return Plugin_Handled; // Block while using Pills/Adrenaline
 
+
+	// If reviving self with animation, block weapon shooting
+	if( g_iCvarRevive && GetEntPropEnt(client, Prop_Send, "m_reviveOwner") == client )
+	{
+		// Block shooting
+		RequestFrame(OnFrameAttack, GetClientUserId(client));
+	}
+
 	g_bHasHeal[client] = false;
 
 	static char classname[32];
@@ -1296,6 +1309,19 @@ Action CanSwitchTo(int client, int weapon)
 	}
 
 	return Plugin_Continue;
+}
+
+void OnFrameAttack(int client)
+{
+	client = GetClientOfUserId(client);
+	if( client && IsClientInGame(client) )
+	{
+		int weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
+		if( weapon != -1 )
+		{
+			SetEntPropFloat(weapon, Prop_Send, "m_flNextPrimaryAttack", GetGameTime() + 10.0);
+		}
+	}
 }
 
 
@@ -1395,7 +1421,7 @@ void HealSetup(int client, bool pills)
 {
 	// Timeout to prevent spamming and fast animation
 	int weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
-	if( weapon != 1 )
+	if( weapon != -1 )
 	{
 		SetEntPropFloat(weapon, Prop_Send, "m_flNextPrimaryAttack", GetGameTime() + (pills ? HEAL_ANIM_PILLS : HEAL_ANIM_ADREN) + 0.2);
 
@@ -1510,6 +1536,26 @@ void HealPlayer(DataPack dPack)
 			hEvent.Fire();
 		}
 	}
+}
+
+public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3], float angles[3], int &weapon)
+{
+	if( g_iCvarRevive == 2 && g_hTimerRevive[client] && buttons & (IN_FORWARD|IN_MOVELEFT|IN_MOVERIGHT|IN_BACK) )
+	{
+		if( GetEntPropEnt(client, Prop_Send, "m_reviveOwner") == client )
+		{
+			weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
+			if( weapon != -1 )
+			{
+				SetEntPropFloat(weapon, Prop_Send, "m_flNextPrimaryAttack", GetGameTime() + 0.5);
+				SetEntPropEnt(client, Prop_Send, "m_reviveOwner", -1);
+				delete g_hTimerRevive[client];
+				ResetHooks(client);
+			}
+		}
+	}
+
+	return Plugin_Continue;
 }
 
 
@@ -1823,11 +1869,21 @@ MRESReturn CTerrorGun_FireBullet_Pre(int pThis)
 		int client = GetEntPropEnt(pThis, Prop_Send, "m_hOwnerEntity");
 		if( client > 0 && client <= MaxClients )
 		{
-			g_iReviveOwner = GetEntProp(client, Prop_Send, "m_reviveOwner");
-			if( g_iReviveOwner != -1 )
+			int target = GetEntPropEnt(client, Prop_Send, "m_reviveOwner");
+
+			if( target == client )
 			{
+				int weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
+				if( weapon != -1 )
+				{
+					SetEntPropFloat(weapon, Prop_Send, "m_flNextPrimaryAttack", GetGameTime() + 10.0);
+				}
+			}
+			else if( target != -1 )
+			{
+				g_iReviveOwner = target;
 				g_iBulletClient = client;
-				SetEntProp(client, Prop_Send, "m_reviveOwner", -1);
+				SetEntPropEnt(client, Prop_Send, "m_reviveOwner", -1);
 			}
 		}
 	}
@@ -1839,7 +1895,7 @@ MRESReturn CTerrorGun_FireBullet_Post(int pThis)
 {
 	if( g_iReviveOwner != -1 )
 	{
-		SetEntProp(g_iBulletClient, Prop_Send, "m_reviveOwner", g_iReviveOwner);
+		SetEntPropEnt(g_iBulletClient, Prop_Send, "m_reviveOwner", g_iReviveOwner);
 	}
 
 	return MRES_Ignored;
