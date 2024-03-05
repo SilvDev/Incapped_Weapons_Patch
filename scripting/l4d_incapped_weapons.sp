@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.34"
+#define PLUGIN_VERSION 		"1.35"
 
 /*=======================================================================================
 	Plugin Info:
@@ -31,6 +31,9 @@
 
 ========================================================================================
 	Change Log:
+
+1.35 (05-Mar-2024)
+	- Fixed revive exploit. Thanks to "glhf3000" for reporting.
 
 1.34 (10-Jan-2024)
 	- Changed the plugins on/off/mode cvars to use the "Left 4 DHooks" method instead of creating an entity.
@@ -1400,6 +1403,8 @@ Action OnAnimPre(int client, int &anim)
 // Heal player with pills/adrenaline (triggered when player uses pills/adrenaline)
 void HealSetup(int client, bool pills)
 {
+	if( GetEntPropEnt(client, Prop_Send, "m_reviveOwner") != -1 ) return;
+
 	// Timeout to prevent spamming and fast animation
 	int weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
 	if( weapon != -1 )
