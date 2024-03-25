@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.35"
+#define PLUGIN_VERSION 		"1.36"
 
 /*=======================================================================================
 	Plugin Info:
@@ -31,6 +31,10 @@
 
 ========================================================================================
 	Change Log:
+
+1.36 (25-Mar-2024)
+	- Fixed a bug with the self revive system. Thanks to "MasterMind420" for reporting.
+	- Plugin now prevents switching to healing items while being revive and equips a weapon instead.
 
 1.35 (05-Mar-2024)
 	- Fixed revive exploit. Thanks to "glhf3000" for reporting.
@@ -884,6 +888,7 @@ void HookEvents()
 {
 	HookEvent("player_incapacitated",		Event_Incapped);
 	HookEvent("bot_player_replace",			Event_Swap_User);
+	HookEvent("revive_begin",				Event_ReviveBegin);
 	HookEvent("revive_success",				Event_ReviveSuccess);
 	HookEvent("player_spawn",				Event_PlayerSpawn);
 	HookEvent("player_death",				Event_PlayerDeath);
@@ -895,6 +900,7 @@ void UnhookEvents()
 {
 	UnhookEvent("player_incapacitated",		Event_Incapped);
 	UnhookEvent("bot_player_replace",		Event_Swap_User);
+	UnhookEvent("revive_begin",				Event_ReviveBegin);
 	UnhookEvent("revive_success",			Event_ReviveSuccess);
 	UnhookEvent("player_spawn",				Event_PlayerSpawn);
 	UnhookEvent("player_death",				Event_PlayerDeath);
@@ -1131,6 +1137,29 @@ void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
 	}
 }
 
+void Event_ReviveBegin(Event event, const char[] name, bool dontBroadcast)
+{
+	int client = GetClientOfUserId(event.GetInt("subject"));
+	if( client && g_bHasHeal[client] )
+	{
+		int weapon = GetPlayerWeaponSlot(client, 0);
+		if( weapon != -1 && GetEntProp(weapon, Prop_Send, "m_iClip1") > 0 )
+		{
+			EquipPlayerWeapon(client, weapon);
+			SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", weapon);
+		}
+		else
+		{
+			weapon = GetPlayerWeaponSlot(client, 1);
+			if( weapon != -1 )
+			{
+				EquipPlayerWeapon(client, weapon);
+				SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", weapon);
+			}
+		}
+	}
+}
+
 void Event_ReviveSuccess(Event event, const char[] name, bool dontBroadcast)
 {
 	int client = GetClientOfUserId(event.GetInt("subject"));
@@ -1292,6 +1321,12 @@ Action CanSwitchTo(int client, int weapon)
 		g_bHasHeal[client] = index == 12; // Pills
 	}
 
+	if( g_bHasHeal[client] && GetEntPropEnt(client, Prop_Send, "m_reviveOwner") != -1 )
+	{
+		g_bHasHeal[client] = false;
+		return Plugin_Handled;
+	}
+
 	return Plugin_Continue;
 }
 
@@ -1445,6 +1480,8 @@ void HealPlayer(DataPack dPack)
 
 	g_hTimerUseHealth[client] = null;
 
+	if( GetEntPropEnt(client, Prop_Send, "m_reviveOwner") != -1 ) return;
+
 	if( client && IsClientInGame(client) && IsPlayerAlive(client) && GetEntProp(client, Prop_Send, "m_isIncapacitated", 1) )
 	{
 		// Delete pills/adrenaline
@@ -1552,7 +1589,7 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 Action TimerRevive(Handle timer, int userid)
 {
 	int client = GetClientOfUserId(userid);
-	if( client && IsClientInGame(client) )
+	if( client && IsClientInGame(client) && GetEntPropEnt(client, Prop_Send, "m_reviveOwner") == client )
 	{
 		g_fReviveTimer[client] -= TIMER_REVIVE;
 
