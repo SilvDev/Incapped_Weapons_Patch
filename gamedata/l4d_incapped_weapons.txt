@@ -208,12 +208,12 @@
 			"CanDeploy_Offset"
 			{
 				"windows"		"39"
-				"linux"			"66"
+				"linux"			"77"
 			}
 			"CanDeploy_Byte"
 			{
 				"windows"		"139" // 0x8B
-				"linux"			"117" // 0x75
+				"linux"			"133" // 0x85
 			}
 			"CanDeploy_Count"
 			{
