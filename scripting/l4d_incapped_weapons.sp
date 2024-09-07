@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.37"
+#define PLUGIN_VERSION 		"1.38"
 
 /*=======================================================================================
 	Plugin Info:
@@ -31,6 +31,9 @@
 
 ========================================================================================
 	Change Log:
+
+1.38 (07-Sep-2024)
+	- Changed the plugin to not fail if any addresses were already patched.
 
 1.37 (16-May-2024)
 	- Fixed the plugin not working in L4D1 Linux due to the recent game update. Thanks to "finishlast" for testing.
@@ -334,9 +337,7 @@ public void OnPluginStart()
 
 	if( g_ByteSaved_Deploy.Get(0) != iByteMatch )
 	{
-		if( g_ByteSaved_Deploy.Get(0) == (iByteCount == 1 ? 0x88 : 0x90) )
-			SetFailState("\n==========\nPlugin prevented from loading, 'CanDeploy' address is already patched, maybe you have a duplicate copy of this plugin running.\n==========");
-		else
+		if( g_ByteSaved_Deploy.Get(0) != (iByteCount == 1 ? 0x88 : 0x90) )
 			SetFailState("Failed to load 'CanDeploy', byte mismatch @ %d (0x%02X != 0x%02X)", iOffset, g_ByteSaved_Deploy.Get(0), iByteMatch);
 	}
 
@@ -367,9 +368,7 @@ public void OnPluginStart()
 
 		if( g_ByteSaved_OnIncap.Get(0) != iByteMatch )
 		{
-			if( g_ByteSaved_OnIncap.Get(0) == 0x90 )
-				SetFailState("\n==========\nPlugin prevented from loading, 'OnIncap' address is already patched, maybe you have a duplicate copy of this plugin running.\n==========");
-			else
+			if( g_ByteSaved_OnIncap.Get(0) != 0x90 )
 				SetFailState("Failed to load 'OnIncap', byte mismatch @ %d (0x%02X != 0x%02X)", iOffset, g_ByteSaved_OnIncap.Get(0), iByteMatch);
 		}
 
@@ -398,9 +397,7 @@ public void OnPluginStart()
 
 		if( g_ByteSaved_FireBullet.Get(0) != iByteMatch ) 
 		{
-			if( g_ByteSaved_FireBullet.Get(0) == (iByteCount == 1 ? 0x75 : 0x90) )
-				SetFailState("\n==========\nPlugin prevented from loading, 'FireBullet' address is already patched, maybe you have a duplicate copy of this plugin running.\n==========");
-			else
+			if( g_ByteSaved_FireBullet.Get(0) != (iByteCount == 1 ? 0x75 : 0x90) )
 				SetFailState("Failed to load 'FireBullet', byte mismatch @ %d (0x%02X != 0x%02X)", iOffset, g_ByteSaved_FireBullet.Get(0), iByteMatch);
 		}
 	}
