@@ -1,6 +1,6 @@
 /*
 *	Incapped Weapons Patch
-*	Copyright (C) 2024 Silvers
+*	Copyright (C) 2025 Silvers
 *
 *	This program is free software: you can redistribute it and/or modify
 *	it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.38"
+#define PLUGIN_VERSION 		"1.39"
 
 /*=======================================================================================
 	Plugin Info:
@@ -31,6 +31,9 @@
 
 ========================================================================================
 	Change Log:
+
+1.39 (21-Mar-2025)
+	- Plugin now gives a pistol if a player only has restricted weapons. Thanks to "zuaLdakid05" for reporting.
 
 1.38 (07-Sep-2024)
 	- Changed the plugin to not fail if any addresses were already patched.
@@ -226,6 +229,8 @@ Handle g_hTimerUseHealth[MAXPLAYERS+1];
 Handle g_hTimerRevive[MAXPLAYERS+1];
 bool g_bHasHeal[MAXPLAYERS+1];
 bool g_bIsPills[MAXPLAYERS+1];
+char g_sIncapType[MAXPLAYERS+1][32];
+int g_iIncapAmmo[MAXPLAYERS+1];
 
 ArrayList g_ByteSaved_Deploy, g_ByteSaved_OnIncap, g_ByteSaved_FireBullet;
 Address g_Address_Deploy, g_Address_OnIncap, g_Address_FireBullet;
@@ -718,6 +723,8 @@ void ClearVars(int client)
 	delete g_hTimerRevive[client];
 	delete g_hTimerUseHealth[client];
 
+	g_iIncapAmmo[client] = 0;
+	g_sIncapType[client][0] = 0;
 	g_bIsPills[client] = false;
 	g_bHasHeal[client] = false;
 	g_fReviveTimer[client] = 0.0;
@@ -967,12 +974,50 @@ void DoIncapped(int userid)
 		if( weapon != -1 && ValidateWeapon(client, weapon) ) return;
 
 		// Switch to primary/pistol/melee/other valid if current weapon restricted, otherwise do nothing.
+		g_sIncapType[client][0] = 0;
+
+		bool hasWeapon;
 		for( int i = 0; i < 5; i++ )
 		{
 			weapon = GetPlayerWeaponSlot(client, i);
 			if( weapon != -1 && ValidateWeapon(client, weapon) )
 			{
+				if( i < 2 )
+				{
+					hasWeapon = true;
+				}
+
 				return;
+			}
+
+			if( !hasWeapon && i == 1 )
+			{
+				if( weapon != -1 )
+				{
+					static char classname[32];
+					GetEdictClassname(weapon, classname, sizeof(classname));
+
+					int index;
+					g_aWeaponIDs.GetValue(classname, index);
+
+					g_iIncapAmmo[client] = GetEntProp(weapon, Prop_Send, "m_iClip1");
+					if( g_bLeft4Dead2 && strcmp(classname[7], "melee") == 0 )
+					{
+						GetEntPropString(weapon, Prop_Data, "m_strMapSetScriptName", classname, sizeof(classname));
+					}
+
+					g_sIncapType[client] = classname;
+
+					RemovePlayerItem(client, weapon);
+					RemoveEntity(weapon);
+				}
+
+				int entity = GivePlayerItem(client, "weapon_pistol");
+				if( entity != INVALID_ENT_REFERENCE )
+				{
+					RemovePlayerItem(client, entity);
+					EquipPlayerWeapon(client, entity);
+				}
 			}
 		}
 	}
@@ -1166,7 +1211,6 @@ void Event_ReviveSuccess(Event event, const char[] name, bool dontBroadcast)
 	if( client && GetClientTeam(client) == 2 )
 	{
 		g_hTimerRevive[client] = null; // Null here, otherwise deleting throws timer errors because the timer is closing itself at this point with return Plugin_Stop
-		ClearVars(client);
 
 		DamageHook(true);
 
@@ -1176,6 +1220,26 @@ void Event_ReviveSuccess(Event event, const char[] name, bool dontBroadcast)
 		SDKUnhook(client, SDKHook_WeaponCanSwitchTo, CanSwitchTo);
 
 		ResetHooks(client);
+
+		// Give secondary weapon back, if primary and secondary were restricted on incap
+		if( g_sIncapType[client][0] )
+		{
+			int weapon = GetPlayerWeaponSlot(client, 1);
+			if( weapon != -1 )
+			{
+				RemovePlayerItem(client, weapon);
+				RemoveEntity(weapon);
+			}
+
+			weapon = GivePlayerItem(client, g_sIncapType[client]);
+			if( weapon != INVALID_ENT_REFERENCE )
+			{
+				EquipPlayerWeapon(client, weapon);
+				SetEntProp(weapon, Prop_Send, "m_iClip1", g_iIncapAmmo[client]);
+			}
+		}
+
+		ClearVars(client);
 	}
 }
 
