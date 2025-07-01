@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.39"
+#define PLUGIN_VERSION 		"1.40"
 
 /*=======================================================================================
 	Plugin Info:
@@ -31,6 +31,10 @@
 
 ========================================================================================
 	Change Log:
+
+1.40 (01-Jul-2025)
+	- Fixed client not in game errors. Thanks to "voledar" for reporting.
+	- Possibly fixed healing animation looping sometimes occurring. Thanks to "Pemarces273" for reporting.
 
 1.39 (21-Mar-2025)
 	- Plugin now gives a pistol if a player only has restricted weapons. Thanks to "zuaLdakid05" for reporting.
@@ -1167,7 +1171,7 @@ void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast)
 void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
 {
 	int client = GetClientOfUserId(event.GetInt("userid"));
-	if( client && GetClientTeam(client) == 2 )
+	if( client && IsClientInGame(client) && GetClientTeam(client) == 2 )
 	{
 		ClearVars(client);
 
@@ -1712,6 +1716,8 @@ Action TimerRevive(Handle timer, int userid)
 			g_fReviveTimer[client] = 0.0;
 
 			RevivePlayer(client, g_bIsPills[client]);
+
+			SetEntPropEnt(client, Prop_Send, "m_reviveOwner", -1);
 		}
 		else
 		{
