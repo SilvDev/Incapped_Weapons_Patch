@@ -1,6 +1,6 @@
 /*
 *	Incapped Weapons Patch
-*	Copyright (C) 2025 Silvers
+*	Copyright (C) 2026 Silvers
 *
 *	This program is free software: you can redistribute it and/or modify
 *	it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.40"
+#define PLUGIN_VERSION 		"1.41"
 
 /*=======================================================================================
 	Plugin Info:
@@ -31,6 +31,9 @@
 
 ========================================================================================
 	Change Log:
+
+1.41 (04-Jan-2026)
+	- Possibly fixed healing animation looping sometimes occurring. Thanks to "Pemarces273" for reporting.
 
 1.40 (01-Jul-2025)
 	- Fixed client not in game errors. Thanks to "voledar" for reporting.
@@ -1582,6 +1585,7 @@ void HealPlayer(DataPack dPack)
 					SDKHook(client, SDKHook_OnTakeDamageAlivePost, OnTakeReviveDamagePost);
 
 				// Wait for revive animation to complete
+				delete g_hTimerRevive[client];
 				g_hTimerRevive[client] = CreateTimer(TIMER_ANIM, TimerAnim, GetClientUserId(client));
 			}
 			else
@@ -1598,8 +1602,8 @@ void HealPlayer(DataPack dPack)
 					{
 						g_iHint[client] = 0;
 						g_fReviveTimer[client] = pills ? g_fCvarDelayPills : g_fCvarDelayAdren;
-						delete g_hTimerRevive[client];
 
+						delete g_hTimerRevive[client];
 						g_hTimerRevive[client] = CreateTimer(TIMER_REVIVE, TimerRevive, userid, TIMER_REPEAT);
 					}
 				}
@@ -1715,9 +1719,9 @@ Action TimerRevive(Handle timer, int userid)
 		{
 			g_fReviveTimer[client] = 0.0;
 
-			RevivePlayer(client, g_bIsPills[client]);
-
 			SetEntPropEnt(client, Prop_Send, "m_reviveOwner", -1);
+
+			RevivePlayer(client, g_bIsPills[client]);
 		}
 		else
 		{
