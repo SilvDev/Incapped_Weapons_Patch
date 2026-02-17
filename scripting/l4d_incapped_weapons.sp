@@ -1,5 +1,5 @@
 /*
-*	Incapped Weapons Patch
+*	Mission and Weapons - Info Editor
 *	Copyright (C) 2026 Silvers
 *
 *	This program is free software: you can redistribute it and/or modify
@@ -18,188 +18,174 @@
 
 
 
-#define PLUGIN_VERSION 		"1.41"
+#define PLUGIN_VERSION		"1.29"
 
-/*=======================================================================================
+/*======================================================================================
 	Plugin Info:
 
-*	Name	:	[L4D & L4D2] Incapped Weapons Patch
+*	Name	:	[L4D & L4D2] Mission and Weapons - Info Editor
 *	Author	:	SilverShot
-*	Descrp	:	Patches the game to allow using Weapons while Incapped, instead of changing weapons scripts.
-*	Link	:	https://forums.alliedmods.net/showthread.php?t=322859
+*	Descrp	:	Modify gamemodes.txt and weapons.txt values by config instead of conflicting VPK files.
+*	Link	:	https://forums.alliedmods.net/showthread.php?t=310586
 *	Plugins	:	https://sourcemod.net/plugins.php?exact=exact&sortby=title&search=1&author=Silvers
 
 ========================================================================================
 	Change Log:
 
-1.41 (04-Jan-2026)
-	- Possibly fixed healing animation looping sometimes occurring. Thanks to "Pemarces273" for reporting.
+1.29 (17-Feb-2026)
+	- Plugin now attempts to load "l4d_info_editor_mission.mode.difficulty.cfg" and "l4d_info_editor_weapons.mode.difficulty.cfg".
+	- They will be loaded if the config file exists instead of loading the default or "mode" config.
+	- For example running "coop" on "normal" difficulty will load "l4d_info_editor_mission.coop.normal.cfg" if available.
+	- Valid difficulties are "easy", "normal", "hard" and "expert".
+	. Requested by "Mika Misori".
 
-1.40 (01-Jul-2025)
-	- Fixed client not in game errors. Thanks to "voledar" for reporting.
-	- Possibly fixed healing animation looping sometimes occurring. Thanks to "Pemarces273" for reporting.
+	- Plugin now creates a "l4d_info_editor.cfg" cvar config in the servers "cfgs/sourcemod" folder.
+	- Added cvars "l4d_info_editor_suffix_mission" and "l4d_info_editor_suffix_weapons" to load a config with this suffix instead if they exist.
+	- This cvar allows specifying a config to load e.g. "l4d_info_editor_mission.<suffix>.cfg" and "l4d_info_editor_weapons.<suffix>.cfg".
+	- Initially coded by "Mika Misori".
 
-1.39 (21-Mar-2025)
-	- Plugin now gives a pistol if a player only has restricted weapons. Thanks to "zuaLdakid05" for reporting.
+	- Config load order is as follows, when a config is detected to exist in this order, no other config will load:
+		1. Cvar suffix config e.g. "l4d_info_editor_mission.<suffix>.cfg"
+		2. Gamemode + difficulty config: "l4d_info_mission.<mode>.<difficulty>.cfg" e.g. "l4d_info_mission.coop.normal.cfg"
+		3. Gamemode config: "l4d_info_mission.<mode>.cfg" e.g. "l4d_info_mission.coop.cfg"
+		4. Load default config: "l4d_info_mission.cfg"
+	- Each config will load from the "all" section first and then from the "map" specific section.
 
-1.38 (07-Sep-2024)
-	- Changed the plugin to not fail if any addresses were already patched.
+1.28 (25-Jan-2026)
+	- L4D2: Fixed the previous update skipping the last melee weapon type in the "meleeweapons" list.
 
-1.37 (16-May-2024)
-	- Fixed the plugin not working in L4D1 Linux due to the recent game update. Thanks to "finishlast" for testing.
+1.27 (04-Jan-2026)
+	- L4D2: Fixed the "riotshield" classname being wrongly named, causing errors in certain maps. Thanks to "gabuch2" for reporting.
+	- L4D2: Fixed adding melee weapons with missing scripts, causing errors in certain maps. Thanks to "gabuch2" for reporting.
 
-1.36 (25-Mar-2024)
-	- Fixed a bug with the self revive system. Thanks to "MasterMind420" for reporting.
-	- Plugin now prevents switching to healing items while being revive and equips a weapon instead.
+1.26 (15-May-2024)
+	- Updated L4D2 GameData for the 2.2.3.8 game update.
 
-1.35 (05-Mar-2024)
-	- Fixed revive exploit. Thanks to "glhf3000" for reporting.
+1.25 (25-Oct-2023)
+	- Test plugins will now throw an error if running, to notify server owners they should only be used for testing and as an example.
 
-1.34 (10-Jan-2024)
-	- Changed the plugins on/off/mode cvars to use the "Left 4 DHooks" method instead of creating an entity.
+1.24 (19-Sep-2023)
+	- Update for L4D2:
+	- Fixed not precaching the Knife model. Thanks to "S.A.S" for reporting.
+	- Fixed not loading melee weapons on some 3rd party maps that are missing the "meleeweapons" key value. Thanks to "Iizuka07" for reporting.
 
-1.33 (25-Oct-2023)
-	- Now "l4d_incapped_weapons_revive" value "2" will interrupt reviving if the player tries to move left/right/forwards/backwards (forward cannot be not detected with Incapped Crawling).
-	- Fixed command "sm_incap" not incapacitating someone if they had over 100 health.
-	- Fixed being able to shoot while the revive animation was playing.
+1.23 (10-Sep-2023)
+	- Fixed mistake with the last update not reading the weapons config. Thanks to "ProjectSky" for reporting.
 
-1.32 (25-Oct-2023)
-	- Added cvar "l4d_incapped_weapons_revive" to put the player in 3rd person (L4D2 only) and play the revive animation. Thanks to "MasterMind420" for parts of the code and ideas.
-	- Added command "sm_incap" to incapacitated yourself or targeted players.
+1.22 (10-Sep-2023)
+	- Fixed not loading the map specific sections. Thanks to "KadabraZz" for reporting.
+	- The config data load order slightly changed:
+	- 1. Attempt to load "all" section.
+	- 2. Attempt to load custom maps section.
+	- 3. Attempt to load game mode specific configs.
+	- 4. Attempt to load game mode specific sections within a config.
+	- 5. Game mode specific sections can be overwritten by map specific sections when the map specific section is below the game mode specific section.
 
-1.31 (02-Oct-2023)
-	- Fixed going AFK breaking self revive. Thanks to "Automage" for reporting.
-	- Now the plugin will throw an error and prevent itself from loading if any of the addresses are already patched.
+	- The default config files have been cleaned up, and example config files provided instead.
 
-1.30 (18-Aug-2023)
-	- Added cvar "l4d_incapped_weapons_health" to set a players main health when they revive themselves. Requested by "Shao".
-	- Now sets the players temporary health on revive to "survivor_revive_health" games cvar value.
+1.21 (09-Sep-2023)
+	- Update for L4D2 to precache melee weapon models to prevent crashes. Wrongly was OnMapEnd instead of OnMapStart.
 
-1.29 (19-Jun-2023)
-	- Fixed "CanDeploy" byte mismatch error. Thanks to "Mika Misori" for reporting.
+1.20 (05-Sep-2023)
+	- Update for L4D2 to precache melee weapon models to prevent crashes. Thanks to "S.A.S" for reporting.
 
-1.28 (10-Mar-2023)
-	- L4D2: Fixed grenade throwing animation not being blocked. Thanks to "BystanderZK" for reporting.
+1.19 (16-Dec-2022)
+	- Fixed not loading melee weapons on certain maps under certain conditions. Thanks to "Mi.Cura" for reporting.
+	- Feature added: plugin can load mode specific sections that overwrite previous data loaded from the "l4d_info_editor_mission.cfg" config. Requested by "ProjectSky".
+	- Feature added: plugin can load mode specific configs, e.g. "l4d_info_editor_mission.versus.cfg" or "l4d_info_editor_mission.mutation3.cfg" for "Versus" or "Bleedout" modes etc.
+	- These features also apply to the "l4d_info_editor_weapons.cfg" data config.
 
-1.27 (20-Feb-2023)
-	- L4D2: Fixed Survivors not taking damage from incapped players when reviving them. Thanks to "Lux" and "Psyk0tik" for help.
-	- L4D2: GameData file updated.
+1.18 (15-Dec-2022)
+	- Fixed duplicating custom melee weapons in the mission keyvalue string. Thanks to "ProjectSky" for reporting.
+	- Fixed not loading melee weapons if the "Info Editor" config is missing a "meleeweapons" key to use.
 
-1.26 (19-Feb-2023)
-	- Various small fixes with late loading and unloading the plugin.
-	- Fixed cvar "l4d_incapped_weapons_friendly" not correctly calculating damage applied to Survivors from weapons.
-	- L4D2: Fixed Survivors not taking damage from incapped players. Thanks to "BystanderZK" for reporting and "Marttt" for testing on Linux.
-	- L4D2: GameData file updated.
+1.17 (12-Dec-2022)
+	- Forgot to turn off debug printing values.
 
-1.25 (10-Feb-2023)
-	- Fixed error when "CanDeploy" is already patched, for whatever reason. Thanks to "knifeeeee" for reporting.
+1.16 (11-Dec-2022)
+	- Fixed error in command "sm_info_melee" causing it to not display everything correctly.
 
-1.24 (24-Jan-2023)
-	- Added cvar "l4d_incapped_weapons_friendly" to scale friendly fire damage from incapped Survivors. Requested by "choppledpickusfungus".
+1.15 (11-Dec-2022)
+	- L4D2: Now supports 3rd party melee weapons where the mission.txt file does not contain a "meleeweapons" key. Thanks to "Yabi" for reporting and testing.
+	- L4D2: Added command "sm_info_melee" to list the maps currently allowed melee weapons and report any issues.
+	- L4D2: GameData file has updated to support these changes.
 
-1.23 (08-Jan-2023)
-	- Plugin now requires SourceMod 1.11 version of DHooks.
-	- Plugin now requires "Left 4 DHooks Direct" plugin, used for Adrenaline and Reviving.
-	- Fixed not always healing or reviving. Thanks to "BystanderZK" for reporting.
-	- Fixed not always allowing pills and adrenaline while incapped, when health was above 100. Thanks to "apples1949" for reporting.
-	- Added Simplified Chinese translations. Thanks to "apples1949" for providing.
-	- Translations updated to use a better title instead of "[Revive]" when healing.
-	- GameData file updated.
+1.14 (21-Oct-2022)
+	- Fixed plugins not loading with the updated include file.
+	- Include file updated.
 
-1.22 (24-Dec-2022)
-	- Fixed printing the color codes instead of using them when translations are missing. Thanks to "HarryPotter" for reporting.
-	- Fixed displaying hints about using Pills/Adrenaline when they are restricted. Thanks to "HarryPotter" for reporting.
-	- Fixed infinite animation loop when holding mouse1 with Adrenaline. Thanks to "ForTheSakura" for reporting.
-	- Fixed displaying the wrong hint for Adrenaline when revive option was set.
+1.13 (20-Oct-2022)
+	- L4D2: Plugin now prevents setting over 16 melee weapons. Thanks to "gabuch2" for reporting.
+	- Compiled .smx plugin is now compiled with SourceMod version 1.11.
 
-1.21 (21-Dec-2022)
-	- Added cvars "l4d_incapped_weapons_delay_pills" and "l4d_incapped_weapons_delay_adren" to set a delay before reviving. Requested by "BystanderZK".
-	- Added cvar "l4d_incapped_weapons_delay_text" to optionally display a hint when using a delayed revive.
-	- Added cvar "l4d_incapped_weapons_heal_text" to display a hint about using pills or adrenaline when incapacitated.
-	- Added optional translations support for delayed revive.
+1.12 (01-Oct-2020)
+	- Fixed not properly adding both melee weapons causing potential issues.
 
-1.20 (12-Dec-2022)
-	- Added cvar "l4d_incapped_weapons_heal_revive" to control if players should revive into black and white status. Requested by "BystanderZK".
-	- Fixed cvar "l4d_incapped_weapons_throw" having inverted logic. Thanks to "BystanderZK" for reporting.
-	- Fixed the PipeBomb effects not displaying. Thanks to "BystanderZK" for reporting.
-	- Fixed taking pills in L4D1 not healing or reviving.
-	- These changes are compatible with the "Heartbeat" plugin.
-
-1.19 (09-Dec-2022)
-	- Forgot to remove debug messages printing to chat. Thanks to "NoroHime" for reporting.
-
-1.18 (06-Dec-2022)
-	- Added extra checks when using Pills and Adrenaline.
-	- Fixed equipping melee weapons reducing all damage given to other Survivors. Thanks to "gabuch2" for reporting.
-
-1.17 (05-Dec-2022)
-	- Fixed unhooking the wrong Think function, breaking the "pain_pills_health_threshold" cvar.
-	- Changed cvars "l4d_incapped_weapons_heal_adren" and "l4d_incapped_weapons_heal_pills" to accept "-1" which will revive a player.
-
-1.16 (05-Dec-2022)
-	- Added feature to allow Pills and Adrenaline to be used while incapped. Requires the "Left 4 DHooks" plugin.
-	- Added cvars "l4d_incapped_weapons_heal_adren" and "l4d_incapped_weapons_heal_pills" to control healing amount while incapped.
-
-1.15 (22-Nov-2022)
-	- Fixed cvar "l4d_incapped_weapons_throw" not preventing standing up animation when plugin is late loaded. Thanks to "TBK Duy" for reporting.
-
-1.14 (12-Nov-2022)
-	- Added cvar "l4d_incapped_weapons_throw" to optionally prevent the standing up animation when throwing grenades.
-	- Now optionally uses "Left 4 DHooks" plugin to prevent standing up animation when throwing grenades.
-
-1.13a (09-Jul-2021)
-	- L4D2: Fixed GameData file from the "2.2.2.0" update.
-
-1.13 (16-Jun-2021)
-	- L4D2: Optimized plugin by resetting Melee damage hooks on map end and round start.
-	- L4D2: Compatibility update for "2.2.1.3" update. Thanks to "Dragokas" for fixing.
+1.11 (24-Sep-2020)
+	- Compatibility update for L4D2's "The Last Stand" update.
+	- Added support for the 2 new melee weapons.
 	- GameData .txt file updated.
 
-1.12 (08-Mar-2021)
-	- Added cvar "l4d_incapped_weapons_melee" to control Melee weapon damage to Survivors. Thanks to "Mystik Spiral" for reporting.
+1.10 (02-Jul-2020)
+	- Fixed not always loading the correct map section data in the config for the current map.
+	- Fixed not adding 3rd party melee weapons on all 3rd party maps. Thanks to "Shao" for reporting.
 
-1.11 (15-Jan-2021)
-	- Fixed weapons being blocked when incapped and changing team. Thanks to "HarryPotter" for reporting.
-
-1.10 (10-May-2020)
+1.9 (10-May-2020)
 	- Added better error log message when gamedata file is missing.
-	- Extra checks to prevent "IsAllowedGameMode" throwing errors.
+	- Now supports setting strings to "" when using the "InfoEditor_SetString" native.
+	- Various changes to tidy up code.
+	- Various optimizations and fixes.
 
-1.9 (12-Apr-2020)
-	- Now keeps the active weapon selected unless it's restricted.
-	- Fixed not being able to switch to melee weapons.
-	- Fixed pistols possibly disappearing sometimes.
-	- Fixed potential of duped pistols when dropped after incap.
-	- Extra checks to prevent "IsAllowedGameMode" throwing errors.
+1.8 (30-Apr-2020)
+	- Changed "InfoEditor_GetString" and "InfoEditor_SetString" natives to not require the mission pointer.
+	- Specifying 0 when calling will make Info Editor use the last known mission pointer value.
+	- A valid pointer will still be required to read weapons data.
 
-1.8 (09-Apr-2020)
-	- Fixed again not always restricting weapons correctly on incap. Thanks to "MasterMind420" for reporting.
+1.7 (12-Apr-2020)
+	- Fixed breaking some melee entries when adding 3rd party melee names containing similar classnames.
+	- Thanks to "Marttt" for reporting.
 
-1.7 (08-Apr-2020)
-	- Fixed not equipping melee weapons when allowed on incap.
+1.6 (10-Apr-2020)
+	- Added support to match multiple map names using comma separation in the data configs, as requested by "Lux".
+	- Added "clip_size", "ReloadDuration", "CycleTime", "Damage", "Range" and "RangeModifier" to "l4d_info_editor_weapons.cfg" config.
+	- Values shown are default from L4D2 weapon scripts.
+	- Fixed not creating keys for weapons and accidentally creating them on the mission file instead.
 
-1.6 (08-Apr-2020)
-	- Fixed breaking pistols, due to the last update.
+1.5 (01-Apr-2020)
+	- Changed command block to allow listen servers to operate the reload command.
+	- Changed .inc file to remove args from copy paste error of "InfoEditor_ReloadData" native.
 
-1.5 (08-Apr-2020)
-	- Fixed ammo being wiped when incapped, due to 1.3 update. Thanks to "Dragokas" for reporting.
-	- Fixed not always restricting weapons correctly on incap. Thanks to "MasterMind420" for reporting.
+1.4 (18-Mar-2020)
+	- Added native "InfoEditor_ReloadData" for external plugins to reload the mission and weapon configs.
+	- Fixed crashing with "CTerrorWeaponInfo::Reload" error. Finally!
 
-1.4 (07-Apr-2020)
-	- Fixed throwing a pistol when dual wielding. Thanks to "MasterMind420" for reporting.
+1.3 (25-Feb-2020)
+	- Now dynamically generates "meleeweapons" string for any map using custom melee weapons.
+	- Set the string to the default game weapons you want to include, and the custom ones will be added.
+	- Mission config "l4d_info_editor_mission.cfg" updated with changes for "Helms Deep" map.
 
-1.3 (07-Apr-2020)
-	- Fixed not equipping a valid weapon when the last equipped weapon was restricted.
-	- Removed the ability to block pistols.
-	- Thanks to "MasterMind420" for reporting.
+1.2 (17-Sep-2019)
+	- No longer removing cheat flags from "sb_all_bot_game" command, was never deleted from testing.
 
-1.2 (07-Apr-2020)
-	- Fixed L4D1 Linux crashing. Only the plugin updated. Thanks to "Dragokas" for testing.
+1.1.1a (25-Aug-2019) re-upload
+	- Added "helms_deep" section in the mission config to enable all melee weapons on that map.
 
-1.1 (07-Apr-2020)
-	- Fixed hooking the L4D2 pistol cvar in L4D1. Thanks to "Alliance" for reporting.
+1.1.1 (09-Jun-2019)
+	- Added FORCE_VALUES define to force create missing keys.
+	- Slightly optimized fixing single line mistake.
+	- Slight code cleaning.
 
-1.0 (06-Apr-2020)
+1.1 (01-Jun-2019)
+	- Fixed reading incorrect data for map specific sections.
+	- Added support to load map specific weapon and melee data.
+	- Added commands to display mission and weapon changes applied to the current map.
+	- Added a command to get and set keyname values from the mission info.
+	- Added a command to reload the mission and weapons configs. Live changes can be made!
+	- Added natives to read and write mission and weapon data from third party plugins.
+	- Added test plugin to demonstrate natives and forwards for developers.
+	- Gamedata .txt changed.
+
+1.0 (10-Sep-2018)
 	- Initial release.
 
 ======================================================================================*/
@@ -208,66 +194,61 @@
 #pragma newdecls required
 
 #include <sourcemod>
-#include <sdktools>
-#include <sdkhooks>
 #include <dhooks>
-#include <left4dhooks>
 
-#define CVAR_FLAGS			FCVAR_NOTIFY
-#define GAMEDATA			"l4d_incapped_weapons"
+#define CVAR_FLAGS				FCVAR_NOTIFY
+#define GAMEDATA				"l4d_info_editor"
+#define CONFIG_MISSION			"data/l4d_info_editor_mission.cfg"
+#define CONFIG_WEAPONS			"data/l4d_info_editor_weapons.cfg"
+#define CONFIG_MANIFEST			"scripts/melee/melee_manifest.txt"
+#define MAX_STRING_LENGTH		4096
+#define MAX_MELEE_STRING		64 // Maximum string length of melee weapons
+#define MAX_MELEE_LIMITS		16 // Maximum number of melee weapons that can be enabled (Valve limit)
+#define DEBUG_VALUES			0
 
-#define PARTICLE_FUSE		"weapon_pipebomb_fuse"
-#define PARTICLE_LIGHT		"weapon_pipebomb_blinking_light"
-
-#define TIMER_REVIVE		0.1		// How often the timer ticks for delayed revive
-#define TIMER_ANIM			5.0		// How long the revive animation takes
-#define TIMER_FALL			1.2		// How long falling animation takes (revive interrupt)
-#define HEAL_ANIM_ADREN		1.3		// How long the healing animation lasts before applying the heal
-#define HEAL_ANIM_PILLS		0.6		// How long the healing animation lasts before applying the heal
-#define DELAY_HINT			1.0		// Delay incapacitated event hint message
-
-
-ConVar g_hCvarAllow, g_hCvarMPGameMode, g_hCvarMaxIncap, g_hCvarIncapHealth, g_hCvarReviveHealth, g_hCvarReviveTemp, g_hCvarDelayAdren, g_hCvarDelayPills, g_hCvarDelayText, g_hCvarHealAdren, g_hCvarHealPills,
-	g_hCvarHealRevive, g_hCvarHealText, g_hCvarFriendly, g_hCvarModes, g_hCvarModesOff, g_hCvarModesTog, g_hCvarMelee, g_hCvarPist, g_hCvarRest, g_hCvarRevive, g_hCvarThrow;
-bool g_bTranslations, g_bLeft4Dead2, g_bHeartbeat, g_bGrenadeFix, g_bLateLoad, g_bCvarAllow, g_bCvarThrow;
-int g_iCvarDelayText, g_iCvarMaxIncap, g_iCvarIncapHealth, g_iCvarReviveHealth, g_iCvarReviveTemp, g_iCvarHealAdren, g_iCvarHealPills, g_iCvarHealText, g_iCvarHealRevive, g_iCvarPist, g_iCvarMelee, g_iCvarRevive, g_iHint[MAXPLAYERS+1];
-float g_fCvarDelayAdren, g_fCvarDelayPills, g_fCvarFriendly, g_fReviveTimer[MAXPLAYERS+1];
-Handle g_hTimerUseHealth[MAXPLAYERS+1];
-Handle g_hTimerRevive[MAXPLAYERS+1];
-bool g_bHasHeal[MAXPLAYERS+1];
-bool g_bIsPills[MAXPLAYERS+1];
-char g_sIncapType[MAXPLAYERS+1][32];
-int g_iIncapAmmo[MAXPLAYERS+1];
-
-ArrayList g_ByteSaved_Deploy, g_ByteSaved_OnIncap, g_ByteSaved_FireBullet;
-Address g_Address_Deploy, g_Address_OnIncap, g_Address_FireBullet;
-DynamicDetour g_hDetourFireBullet, g_hDetourCanUseOnSelf;
-
-ArrayList g_aRestrict;
-StringMap g_aWeaponIDs;
-
-// From "Heartbeat" plugin
-native int Heartbeat_GetRevives(int client);
-native void Heartbeat_SetRevives(int client, int reviveCount, bool reviveLogic = true);
+bool g_bGameMode;
+ConVar g_hCvarMPGameMode;
+ConVar g_hCvarDifficulty;
+ConVar g_hCvarSuffixMission;
+ConVar g_hCvarSuffixWeapons;
+char g_sGameMode[64];
+char g_sDifficulty[12];
+char g_sConfigMission[PLATFORM_MAX_PATH];
+char g_sConfigWeapons[PLATFORM_MAX_PATH];
+char g_sCvarSuffixMission[32];
+char g_sCvarSuffixWeapons[32];
+Handle g_hForwardOnGetMission;
+Handle g_hForwardOnGetWeapons;
+Handle SDK_KV_GetString;
+Handle SDK_KV_SetString;
+Handle SDK_KV_FindKey;
+ArrayList g_alMissionData;
+ArrayList g_alWeaponsData;
+ArrayList g_alMeleeDefault;
+ArrayList g_alMeleeCustoms;
+int g_PointerMission;
+bool g_bLeft4Dead2;
+bool g_bLoadNewMap = true;
+bool g_bManifest;
+bool g_bHasMelee;
 
 
 
 // ====================================================================================================
-//					PLUGIN INFO / START / END
+//					PLUGIN INFO / NATIVES
 // ====================================================================================================
 public Plugin myinfo =
 {
-	name = "[L4D & L4D2] Incapped Weapons Patch",
+	name = "[L4D & L4D2] Mission and Weapons - Info Editor",
 	author = "SilverShot",
-	description = "Patches the game to allow using Weapons while Incapped, instead of changing weapons scripts.",
+	description = "Modify gamemodes.txt and weapons.txt values by config instead of conflicting VPK files.",
 	version = PLUGIN_VERSION,
-	url = "https://forums.alliedmods.net/showthread.php?t=322859"
+	url = "https://forums.alliedmods.net/showthread.php?t=310586"
 }
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
 	EngineVersion test = GetEngineVersion();
-
 	if( test == Engine_Left4Dead ) g_bLeft4Dead2 = false;
 	else if( test == Engine_Left4Dead2 ) g_bLeft4Dead2 = true;
 	else
@@ -276,47 +257,115 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 		return APLRes_SilentFailure;
 	}
 
-	MarkNativeAsOptional("Heartbeat_GetRevives");
-	MarkNativeAsOptional("Heartbeat_SetRevives");
+	// Natives
+	RegPluginLibrary("info_editor");
+	CreateNative("InfoEditor_GetString",		Native_GetString);
+	CreateNative("InfoEditor_SetString",		Native_SetString);
+	CreateNative("InfoEditor_ReloadData",		Native_ReloadData);
 
-	RegPluginLibrary("l4d_incapped_weapons");
-
-	g_bLateLoad = late;
+	g_bManifest = late;
+	if( late )
+	{
+		LoadManifest();
+	}
 
 	return APLRes_Success;
 }
 
-public void OnLibraryAdded(const char[] name)
+int Native_GetString(Handle plugin, int numParams)
 {
-	if( strcmp(name, "l4d_heartbeat") == 0 )
-	{
-		g_bHeartbeat = true;
-	}
+	// Pointer to keyvalue for modifying
+	int pThis = GetNativeCell(1);
+	if( pThis == 0 ) pThis = g_PointerMission;
+	if( pThis == 0 ) return 0; // Some maps maybe invalid (due to invalid gamemode).
+
+	// Validate string
+	int len;
+	GetNativeStringLength(2, len);
+	if( len <= 0 ) return 0;
+
+	// Key name to get
+	static char key[MAX_STRING_LENGTH];
+	GetNativeString(2, key, sizeof(key));
+
+	// Get key value
+	static char value[MAX_STRING_LENGTH];
+	SDKCall(SDK_KV_GetString, pThis, value, sizeof(value), key, "N/A");
+
+	// Return string
+	int maxlength = GetNativeCell(4);
+	SetNativeString(3, value, maxlength);
+
+	return 0;
 }
 
-public void OnLibraryRemoved(const char[] name)
+int Native_SetString(Handle plugin, int numParams)
 {
-	if( strcmp(name, "l4d_heartbeat") == 0 )
+	// Pointer to keyvalue for modifying
+	int pThis = GetNativeCell(1);
+	if( pThis == 0 ) pThis = g_PointerMission;
+	if( pThis == 0 ) return 0; // Some maps maybe invalid (due to invalid gamemode).
+
+	// Validate string
+	int len;
+	GetNativeStringLength(2, len);
+	if( len <= 0 ) return 0;
+	GetNativeStringLength(3, len);
+
+	// Key name and value to set
+	static char key[MAX_STRING_LENGTH];
+	char[] value = new char[len+1];
+	GetNativeString(2, key, sizeof(key));
+	GetNativeString(3, value, len+1);
+
+	// Create
+	bool bCreate = GetNativeCell(4);
+
+	if( bCreate )
 	{
-		g_bHeartbeat = false;
+		static char sCheck[MAX_STRING_LENGTH];
+		SDKCall(SDK_KV_GetString, pThis, sCheck, sizeof(sCheck), key, "N/A");
+
+		if( strcmp(sCheck, "N/A") == 0 )
+		{
+			SDKCall(SDK_KV_FindKey, pThis, key, true);
+		}
 	}
+
+	// Set key value
+	SDKCall(SDK_KV_SetString, pThis, key, value);
+
+	return 0;
 }
 
-public void OnAllPluginsLoaded()
-{
-	if( FindConVar("incapped_weapons_enable") != null )
-	{
-		SetFailState("Delete the old \"Incapped Weapons\" plugin to run this one.");
-	}
 
-	g_bGrenadeFix = FindConVar("l4d_unlimited_grenades_version") != null;
-}
 
+// ====================================================================================================
+//					PLUGIN START / END
+// ====================================================================================================
 public void OnPluginStart()
 {
-	// ====================================================================================================
-	// GAMEDATA
-	// ====================================================================================================
+	CreateConVar("l4d_info_editor_version", PLUGIN_VERSION, "Mission and Weapons - Info Editor plugin version.", FCVAR_NOTIFY|FCVAR_DONTRECORD);
+
+	g_hCvarSuffixMission = CreateConVar("l4d_info_editor_suffix_mission", "", "Optional config suffix to load: l4d_info_editor_weapons.<suffix>.cfg and l4d_info_editor_mission.<suffix>.cfg", CVAR_FLAGS);
+	g_hCvarSuffixWeapons = CreateConVar("l4d_info_editor_suffix_weapons", "", "Optional config suffix to load: l4d_info_editor_weapons.<suffix>.cfg and l4d_info_editor_mission.<suffix>.cfg", CVAR_FLAGS);
+	AutoExecConfig(true, "l4d_info_editor");
+
+	g_hCvarMPGameMode = FindConVar("mp_gamemode");
+	g_hCvarDifficulty = FindConVar("z_difficulty");
+	g_hCvarMPGameMode.AddChangeHook(ConVarChanged_Mode);
+	g_hCvarDifficulty.AddChangeHook(ConVarChanged_Diff);
+	g_hCvarSuffixMission.AddChangeHook(ConVarChanged_Suff);
+	g_hCvarSuffixWeapons.AddChangeHook(ConVarChanged_Suff);
+	ConVarChanged_Mode(null, "", "");
+	ConVarChanged_Diff(null, "", "");
+	ConVarChanged_Suff(null, "", "");
+
+
+
+	// =========================
+	// SDKCalls
+	// =========================
 	char sPath[PLATFORM_MAX_PATH];
 	BuildPath(Path_SM, sPath, sizeof(sPath), "gamedata/%s.txt", GAMEDATA);
 	if( FileExists(sPath) == false ) SetFailState("\n==========\nMissing required file: \"%s\".\nRead installation instructions again.\n==========", sPath);
@@ -324,1833 +373,1299 @@ public void OnPluginStart()
 	Handle hGameData = LoadGameConfigFile(GAMEDATA);
 	if( hGameData == null ) SetFailState("Failed to load \"%s.txt\" gamedata.", GAMEDATA);
 
+	StartPrepSDKCall(SDKCall_Raw);
+	if( PrepSDKCall_SetFromConf(hGameData, SDKConf_Signature, "KeyValues::GetString") == false )
+		SetFailState("Could not load the \"KeyValues::GetString\" gamedata signature.");
+	PrepSDKCall_AddParameter(SDKType_String, SDKPass_Pointer);
+	PrepSDKCall_AddParameter(SDKType_String, SDKPass_Pointer);
+	PrepSDKCall_SetReturnInfo(SDKType_String, SDKPass_Pointer);
+	SDK_KV_GetString = EndPrepSDKCall();
+	if( SDK_KV_GetString == null )
+		SetFailState("Could not prep the \"KeyValues::GetString\" function.");
 
+	StartPrepSDKCall(SDKCall_Raw);
+	if( PrepSDKCall_SetFromConf(hGameData, SDKConf_Signature, "KeyValues::SetString") == false )
+		SetFailState("Could not load the \"KeyValues::SetString\" gamedata signature.");
+	PrepSDKCall_AddParameter(SDKType_String, SDKPass_Pointer);
+	PrepSDKCall_AddParameter(SDKType_String, SDKPass_Pointer);
+	SDK_KV_SetString = EndPrepSDKCall();
+	if( SDK_KV_SetString == null )
+		SetFailState("Could not prep the \"KeyValues::SetString\" function.");
 
-	// Patch deploy - To allow weapons to be equipped while incapped
-	int iOffset = GameConfGetOffset(hGameData, "CanDeploy_Offset");
-	if( iOffset == -1 ) SetFailState("Failed to load \"CanDeploy_Offset\" offset.");
-
-	int iByteMatch = GameConfGetOffset(hGameData, "CanDeploy_Byte");
-	if( iByteMatch == -1 ) SetFailState("Failed to load \"CanDeploy_Byte\" byte.");
-
-	int iByteCount = GameConfGetOffset(hGameData, "CanDeploy_Count");
-	if( iByteCount == -1 ) SetFailState("Failed to load \"CanDeploy_Count\" count.");
-
-	g_Address_Deploy = GameConfGetAddress(hGameData, "CanDeploy");
-	if( !g_Address_Deploy ) SetFailState("Failed to load \"CanDeploy\" address.");
-
-	g_Address_Deploy += view_as<Address>(iOffset);
-	g_ByteSaved_Deploy = new ArrayList();
-
-	for( int i = 0; i < iByteCount; i++ )
+	StartPrepSDKCall(SDKCall_Raw);
+	if( PrepSDKCall_SetFromConf(hGameData, SDKConf_Signature, "KeyValues::FindKey") == false )
 	{
-		g_ByteSaved_Deploy.Push(LoadFromAddress(g_Address_Deploy + view_as<Address>(i), NumberType_Int8));
+		LogError("Could not load the \"KeyValues::FindKey\" gamedata signature.");
+	} else {
+		PrepSDKCall_AddParameter(SDKType_String, SDKPass_Pointer);
+		PrepSDKCall_AddParameter(SDKType_Bool, SDKPass_Pointer);
+		SDK_KV_FindKey = EndPrepSDKCall();
+		if( SDK_KV_FindKey == null )
+			LogError("Could not prep the \"KeyValues::FindKey\" function.");
 	}
 
-	if( g_ByteSaved_Deploy.Get(0) != iByteMatch )
-	{
-		if( g_ByteSaved_Deploy.Get(0) != (iByteCount == 1 ? 0x88 : 0x90) )
-			SetFailState("Failed to load 'CanDeploy', byte mismatch @ %d (0x%02X != 0x%02X)", iOffset, g_ByteSaved_Deploy.Get(0), iByteMatch);
-	}
 
 
+	// =========================
+	// Detours
+	// =========================
+	Handle hDetour;
+
+	// Mission Info
+	hDetour = DHookCreateFromConf(hGameData, "CTerrorGameRules::GetMissionInfo");
+	if( !hDetour )
+		SetFailState("Failed to find \"CTerrorGameRules::GetMissionInfo\" signature.");
+	if( !DHookEnableDetour(hDetour, true, GetMissionInfo) )
+		SetFailState("Failed to detour \"CTerrorGameRules::GetMissionInfo\"");
+	delete hDetour;
+
+	// Weapon Info
+	hDetour = DHookCreateFromConf(hGameData, "CTerrorWeaponInfo::Parse");
+	if( !hDetour )
+		SetFailState("Failed to find \"CTerrorWeaponInfo::Parse\" signature.");
+	if( !DHookEnableDetour(hDetour, false, GetWeaponInfo) )
+		SetFailState("Failed to detour \"CTerrorWeaponInfo::Parse\"");
+	delete hDetour;
 
 	if( g_bLeft4Dead2 )
 	{
-		// Patch melee - To allow melee weapons to be used while incapped
-		iOffset = GameConfGetOffset(hGameData, "OnIncap_Offset");
-		if( iOffset == -1 ) SetFailState("Failed to load \"OnIncap_Offset\" offset.");
+		// Melee Weapons
+		hDetour = DHookCreateFromConf(hGameData, "CMeleeWeaponInfo::Parse");
+		if( !hDetour )
+			SetFailState("Failed to find \"CMeleeWeaponInfo::Parse\" signature.");
+		if( !DHookEnableDetour(hDetour, false, GetMeleeWeaponInfo) )
+			SetFailState("Failed to detour \"CMeleeWeaponInfo::Parse\"");
+		delete hDetour;
 
-		iByteMatch = GameConfGetOffset(hGameData, "OnIncap_Byte");
-		if( iByteMatch == -1 ) SetFailState("Failed to load \"OnIncap_Byte\" byte.");
+		// Allow all Melee weapon types
+		hDetour = DHookCreateFromConf(hGameData, "CDirectorItemManager::IsMeleeWeaponAllowedToExist");
+		if( !hDetour )
+			SetFailState("Failed to find \"CDirectorItemManager::IsMeleeWeaponAllowedToExist\" signature.");
+		if( !DHookEnableDetour(hDetour, true, MeleeWeaponAllowedToExist) )
+			SetFailState("Failed to detour \"CDirectorItemManager::IsMeleeWeaponAllowedToExist\"");
+		delete hDetour;
 
-		iByteCount = GameConfGetOffset(hGameData, "OnIncap_Count");
-		if( iByteCount == -1 ) SetFailState("Failed to load \"OnIncap_Count\" count.");
-
-		g_Address_OnIncap = GameConfGetAddress(hGameData, "OnIncapacitatedAsSurvivor");
-		if( !g_Address_OnIncap ) SetFailState("Failed to load \"OnIncapacitatedAsSurvivor\" address.");
-
-		g_Address_OnIncap += view_as<Address>(iOffset);
-		g_ByteSaved_OnIncap = new ArrayList();
-
-		for( int i = 0; i < iByteCount; i++ )
-		{
-			g_ByteSaved_OnIncap.Push(LoadFromAddress(g_Address_OnIncap + view_as<Address>(i), NumberType_Int8));
-		}
-
-		if( g_ByteSaved_OnIncap.Get(0) != iByteMatch )
-		{
-			if( g_ByteSaved_OnIncap.Get(0) != 0x90 )
-				SetFailState("Failed to load 'OnIncap', byte mismatch @ %d (0x%02X != 0x%02X)", iOffset, g_ByteSaved_OnIncap.Get(0), iByteMatch);
-		}
-
-
-
-		// Patch FireBullet - To allow shooting Survivors while incapped
-		iOffset = GameConfGetOffset(hGameData, "FireBullet_Offset");
-		if( iOffset == -1 ) SetFailState("Failed to load \"FireBullet_Offset\" offset.");
-
-		iByteMatch = GameConfGetOffset(hGameData, "FireBullet_Byte");
-		if( iByteMatch == -1 ) SetFailState("Failed to load \"FireBullet_Byte\" byte.");
-
-		iByteCount = GameConfGetOffset(hGameData, "FireBullet_Count");
-		if( iByteCount == -1 ) SetFailState("Failed to load \"FireBullet_Count\" count.");
-
-		g_Address_FireBullet = GameConfGetAddress(hGameData, "FireBullet");
-		if( !g_Address_FireBullet ) SetFailState("Failed to load \"FireBullet\" address.");
-
-		g_Address_FireBullet += view_as<Address>(iOffset);
-		g_ByteSaved_FireBullet = new ArrayList();
-
-		for( int i = 0; i < iByteCount; i++ )
-		{
-			g_ByteSaved_FireBullet.Push(LoadFromAddress(g_Address_FireBullet + view_as<Address>(i), NumberType_Int8));
-		}
-
-		if( g_ByteSaved_FireBullet.Get(0) != iByteMatch ) 
-		{
-			if( g_ByteSaved_FireBullet.Get(0) != (iByteCount == 1 ? 0x75 : 0x90) )
-				SetFailState("Failed to load 'FireBullet', byte mismatch @ %d (0x%02X != 0x%02X)", iOffset, g_ByteSaved_FireBullet.Get(0), iByteMatch);
-		}
-	}
-
-
-
-	// ====================================================================================================
-	// DETOURS
-	// ====================================================================================================
-	if( g_bLeft4Dead2 )
-	{
-		g_hDetourFireBullet = DynamicDetour.FromConf(hGameData, "IW::CTerrorGun::FireBullet");
-		if( !g_hDetourFireBullet ) SetFailState("Failed to find \"CTerrorGun::FireBullet\" signature.");
-
-		g_hDetourCanUseOnSelf = DynamicDetour.FromConf(hGameData, "IW::CPainPills::CanUseOnSelf");
-		if( !g_hDetourCanUseOnSelf ) SetFailState("Failed to find \"CPainPills::CanUseOnSelf\" signature.");
-	}
-	else
-	{
-		g_hDetourCanUseOnSelf = DynamicDetour.FromConf(hGameData, "IW::CPainPills::PrimaryAttack");
-		if( !g_hDetourCanUseOnSelf ) SetFailState("Failed to find \"CPainPills::PrimaryAttack\" signature.");
+		// Overwrite string when "meleeweapons" keyvalue from mission.txt is empty
+		hDetour = DHookCreateFromConf(hGameData, "CMeleeWeaponInfoStore::LoadScriptsFromManifest");
+		if( !hDetour )
+			SetFailState("Failed to find \"CMeleeWeaponInfoStore::LoadScriptsFromManifest\" signature.");
+		if( !DHookEnableDetour(hDetour, false, LoadScriptsFromManifest) )
+			SetFailState("Failed to detour \"CMeleeWeaponInfoStore::LoadScriptsFromManifest\"");
+		delete hDetour;
 	}
 
 	delete hGameData;
 
-
-
-	// ====================================================================================================
-	// CVARS
-	// ====================================================================================================
-	g_hCvarAllow =			CreateConVar(	"l4d_incapped_weapons_allow",			"1",					"0=Plugin off, 1=Plugin on.", CVAR_FLAGS );
-	g_hCvarModes =			CreateConVar(	"l4d_incapped_weapons_modes",			"",						"Turn on the plugin in these game modes, separate by commas (no spaces). (Empty = all).", CVAR_FLAGS );
-	g_hCvarModesOff =		CreateConVar(	"l4d_incapped_weapons_modes_off",		"",						"Turn off the plugin in these game modes, separate by commas (no spaces). (Empty = none).", CVAR_FLAGS );
-	g_hCvarModesTog =		CreateConVar(	"l4d_incapped_weapons_modes_tog",		"0",					"Turn on the plugin in these game modes. 0=All, 1=Coop, 2=Survival, 4=Versus, 8=Scavenge. Add numbers together.", CVAR_FLAGS );
-
-	if( g_bLeft4Dead2 )
-		g_hCvarDelayAdren =	CreateConVar(	"l4d_incapped_weapons_delay_adren",		"5.0",					"0.0=Off. How many seconds a player must wait after using Adrenaline to be revived.", CVAR_FLAGS);
-	g_hCvarDelayPills =		CreateConVar(	"l4d_incapped_weapons_delay_pills",		"5.0",					"0.0=Off. How many seconds a player must wait after using Pills to be revived.", CVAR_FLAGS);
-	g_hCvarDelayText =		CreateConVar(	"l4d_incapped_weapons_delay_text",		"2",					"0=Off. 1=Print to chat. 2=Print to hint box. Display to player how long until they are revived, when using a _delay cvar.", CVAR_FLAGS);
-
-	g_hCvarFriendly =		CreateConVar(	"l4d_incapped_weapons_friendly",		"1.0",					"0.0=None. 1.0=Default damage. Scales an incapped Survivors friendly fire damage to other Survivors.", CVAR_FLAGS);
-	g_hCvarReviveHealth =	CreateConVar(	"l4d_incapped_weapons_health",			"30",					"How much main health to set on a player when they revive themselves. For temp health use the games survivor_revive_health cvar.", CVAR_FLAGS);
-
-	if( g_bLeft4Dead2 )
-		g_hCvarHealAdren =	CreateConVar(	"l4d_incapped_weapons_heal_adren",		"50",					"-1=Revive player. 0=Off. How much to heal a player when they use Adrenaline whilst incapped.", CVAR_FLAGS);
-	g_hCvarHealPills =		CreateConVar(	"l4d_incapped_weapons_heal_pills",		"50",					"-1=Revive player. 0=Off. How much to heal a player when they use Pain Pills whilst incapped.", CVAR_FLAGS);
-	g_hCvarHealRevive =		CreateConVar(	"l4d_incapped_weapons_heal_revive",		"0",					"0=Off. Should player enter black and white status when reviving using: 1=Pills. 2=Adrenaline. 3=Both.", CVAR_FLAGS);
-	g_hCvarHealText =		CreateConVar(	"l4d_incapped_weapons_heal_text",		"1",					"0=Off. 1=Print to chat. 2=Print to hint box. Print a message when incapacitated that Pills/Adrenaline can be used to heal/revive.", CVAR_FLAGS);
-
+	// Strip cheat flags here, because executing when required with a CheatCommand() function to strip/add the cheat flag denies with the error:
+	// "Can't use cheat command weapon_reparse_server in multiplayer, unless the server has sv_cheats set to 1."
+	// We'll also block clients from executing the commands to prevent any potential exploit or command spam.
+	SetCommandFlags("weapon_reparse_server", GetCommandFlags("weapon_reparse_server") & ~FCVAR_CHEAT);
+	AddCommandListener(CmdListenBlock, "weapon_reparse_server");
 	if( g_bLeft4Dead2 )
 	{
-		g_hCvarMelee =		CreateConVar(	"l4d_incapped_weapons_melee",			"0",					"0=No friendly fire. 1=Allow friendly fire. When using Melee weapons should they hurt other Survivors.", CVAR_FLAGS);
-		g_hCvarPist =		CreateConVar(	"l4d_incapped_weapons_pistol",			"0",					"0=Don't give pistol (allows Melee weapons to be used). 1=Give pistol (game default).", CVAR_FLAGS);
-		g_hCvarRest =		CreateConVar(	"l4d_incapped_weapons_restrict",		"12,24,30,31",			"Empty string to allow all. Prevent these weapon/item IDs from being used while incapped. See plugin post for details.", CVAR_FLAGS);
-	} else {
-		g_hCvarRest =		CreateConVar(	"l4d_incapped_weapons_restrict",		"8",					"Empty string to allow all. Prevent these weapon/item IDs from being used while incapped. See plugin post for details.", CVAR_FLAGS);
-	}
-
-	g_hCvarRevive =			CreateConVar(	"l4d_incapped_weapons_revive",			"3",					"Play revive animation: 0=Off. 1=On and damage can stop reviving. 2=Damage will interrupt animation and restart reviving. 3=Damage does not interrupt reviving. 4=Give god mode when reviving.", CVAR_FLAGS);
-	g_hCvarThrow =			CreateConVar(	"l4d_incapped_weapons_throw",			"0",					"0=Block grenade throwing animation to prevent standing up during throw (requires Left4DHooks plugin). 1=Allow throwing animation.", CVAR_FLAGS);
-
-	CreateConVar(							"l4d_incapped_weapons_version",			PLUGIN_VERSION,			"Incapped Weapons plugin version.", FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	AutoExecConfig(true,					"l4d_incapped_weapons");
-
-	g_hCvarMaxIncap = FindConVar("survivor_max_incapacitated_count");
-	g_hCvarReviveTemp = FindConVar("survivor_revive_health");
-	g_hCvarIncapHealth = FindConVar("survivor_incap_health");
-	g_hCvarMPGameMode = FindConVar("mp_gamemode");
-
-	g_hCvarMPGameMode.AddChangeHook(ConVarChanged_Allow);
-	g_hCvarModes.AddChangeHook(ConVarChanged_Allow);
-	g_hCvarModesOff.AddChangeHook(ConVarChanged_Allow);
-	g_hCvarModesTog.AddChangeHook(ConVarChanged_Allow);
-	g_hCvarAllow.AddChangeHook(ConVarChanged_Allow);
-
-	if( g_bLeft4Dead2 )
-	{
-		g_hCvarDelayAdren.AddChangeHook(ConVarChanged_Cvars);
-		g_hCvarHealAdren.AddChangeHook(ConVarChanged_Cvars);
-		g_hCvarPist.AddChangeHook(ConVarChanged_Cvars);
-		g_hCvarMelee.AddChangeHook(ConVarChanged_Cvars);
-	}
-	g_hCvarFriendly.AddChangeHook(ConVarChanged_Cvars);
-	g_hCvarDelayPills.AddChangeHook(ConVarChanged_Cvars);
-	g_hCvarDelayText.AddChangeHook(ConVarChanged_Cvars);
-	g_hCvarHealPills.AddChangeHook(ConVarChanged_Cvars);
-	g_hCvarHealRevive.AddChangeHook(ConVarChanged_Cvars);
-	g_hCvarHealText.AddChangeHook(ConVarChanged_Cvars);
-	g_hCvarMaxIncap.AddChangeHook(ConVarChanged_Cvars);
-	g_hCvarIncapHealth.AddChangeHook(ConVarChanged_Cvars);
-	g_hCvarReviveHealth.AddChangeHook(ConVarChanged_Cvars);
-	g_hCvarReviveTemp.AddChangeHook(ConVarChanged_Cvars);
-	g_hCvarRest.AddChangeHook(ConVarChanged_Cvars);
-	g_hCvarRevive.AddChangeHook(ConVarChanged_Cvars);
-	g_hCvarThrow.AddChangeHook(ConVarChanged_Cvars);
-
-
-
-	// ====================================================================================================
-	// TRANSLATIONS
-	// ====================================================================================================
-	BuildPath(Path_SM, sPath, sizeof(sPath), "translations/incapped_weapons.phrases.txt");
-	if( FileExists(sPath) )
-	{
-		g_bTranslations = true;
-		LoadTranslations("incapped_weapons.phrases");
+		SetCommandFlags("melee_reload_info_server", GetCommandFlags("melee_reload_info_server") & ~FCVAR_CHEAT);
+		AddCommandListener(CmdListenBlock, "melee_reload_info_server");
 	}
 
 
 
-	// ====================================================================================================
-	// WEAPON RESTRICTION
-	// ====================================================================================================
-	// Taken from "Left 4 DHooks Direct", see for complete list.
-	g_aWeaponIDs = new StringMap();
+	// =========================
+	// OTHER
+	// =========================
+
+	// Forwards
+	g_hForwardOnGetMission = CreateGlobalForward("OnGetMissionInfo", ET_Ignore, Param_Cell);
+	g_hForwardOnGetWeapons = CreateGlobalForward("OnGetWeaponsInfo", ET_Ignore, Param_Cell, Param_String);
+
+	// Load config
+	ResetPlugin();
+
+	// Commands
+	RegAdminCmd("sm_info_mission_list",	CmdInfoMissionList,	ADMFLAG_ROOT, "Show mission config tree of modified data for this map.");
+	RegAdminCmd("sm_info_weapons_list",	CmdInfoWeaponsList,	ADMFLAG_ROOT, "Show weapons config tree of modified data for this map.");
+	RegAdminCmd("sm_info_mission",		CmdInfoMission,		ADMFLAG_ROOT, "Get or set the value of a mission keyname. Usage: sm_info_mission <keyname> [value].");
+	RegAdminCmd("sm_info_reload",		CmdInfoReload,		ADMFLAG_ROOT, "Reloads the mission and weapons configs. Weapons info data is re-parsed allowing changes to be made live without changing level.");
 
 	if( g_bLeft4Dead2 )
 	{
-		g_aWeaponIDs.SetValue("weapon_pistol",						1);
-		g_aWeaponIDs.SetValue("weapon_smg",							2);
-		g_aWeaponIDs.SetValue("weapon_pumpshotgun",					3);
-		g_aWeaponIDs.SetValue("weapon_autoshotgun",					4);
-		g_aWeaponIDs.SetValue("weapon_rifle",						5);
-		g_aWeaponIDs.SetValue("weapon_hunting_rifle",				6);
-		g_aWeaponIDs.SetValue("weapon_smg_silenced",				7);
-		g_aWeaponIDs.SetValue("weapon_shotgun_chrome",				8);
-		g_aWeaponIDs.SetValue("weapon_rifle_desert",				9);
-		g_aWeaponIDs.SetValue("weapon_sniper_military",				10);
-		g_aWeaponIDs.SetValue("weapon_shotgun_spas",				11);
-		g_aWeaponIDs.SetValue("weapon_first_aid_kit",				12);
-		g_aWeaponIDs.SetValue("weapon_molotov",						13);
-		g_aWeaponIDs.SetValue("weapon_pipe_bomb",					14);
-		g_aWeaponIDs.SetValue("weapon_pain_pills",					15);
-		g_aWeaponIDs.SetValue("weapon_melee",						19);
-		g_aWeaponIDs.SetValue("weapon_chainsaw",					20);
-		g_aWeaponIDs.SetValue("weapon_grenade_launcher",			21);
-		g_aWeaponIDs.SetValue("weapon_adrenaline",					23);
-		g_aWeaponIDs.SetValue("weapon_defibrillator",				24);
-		g_aWeaponIDs.SetValue("weapon_vomitjar",					25);
-		g_aWeaponIDs.SetValue("weapon_rifle_ak47",					26);
-		g_aWeaponIDs.SetValue("weapon_upgradepack_incendiary",		30);
-		g_aWeaponIDs.SetValue("weapon_upgradepack_explosive",		31);
-		g_aWeaponIDs.SetValue("weapon_pistol_magnum",				32);
-		g_aWeaponIDs.SetValue("weapon_smg_mp5",						33);
-		g_aWeaponIDs.SetValue("weapon_rifle_sg552",					34);
-		g_aWeaponIDs.SetValue("weapon_sniper_awp",					35);
-		g_aWeaponIDs.SetValue("weapon_sniper_scout",				36);
-		g_aWeaponIDs.SetValue("weapon_rifle_m60",					37);
-	} else {
-		g_aWeaponIDs.SetValue("weapon_pistol",						1);
-		g_aWeaponIDs.SetValue("weapon_smg",							2);
-		g_aWeaponIDs.SetValue("weapon_pumpshotgun",					3);
-		g_aWeaponIDs.SetValue("weapon_autoshotgun",					4);
-		g_aWeaponIDs.SetValue("weapon_rifle",						5);
-		g_aWeaponIDs.SetValue("weapon_hunting_rifle",				6);
-		g_aWeaponIDs.SetValue("weapon_first_aid_kit",				8);
-		g_aWeaponIDs.SetValue("weapon_molotov",						9);
-		g_aWeaponIDs.SetValue("weapon_pipe_bomb",					10);
-		g_aWeaponIDs.SetValue("weapon_pain_pills",					12);
+		RegAdminCmd("sm_info_melee",	CmdInfoMelee,		ADMFLAG_ROOT, "Lists the maps current melee weapons allowed and report any issues.");
+
+		// Add stock melee weapons, used to remove from manifest
+		g_alMeleeDefault = new ArrayList(ByteCountToCells(MAX_MELEE_STRING));
+		g_alMeleeDefault.PushString("baseball_bat");
+		g_alMeleeDefault.PushString("cricket_bat");
+		g_alMeleeDefault.PushString("crowbar");
+		g_alMeleeDefault.PushString("electric_guitar");
+		g_alMeleeDefault.PushString("fireaxe");
+		g_alMeleeDefault.PushString("frying_pan");
+		g_alMeleeDefault.PushString("golfclub");
+		g_alMeleeDefault.PushString("katana");
+		g_alMeleeDefault.PushString("knife");
+		g_alMeleeDefault.PushString("machete");
+		g_alMeleeDefault.PushString("tonfa");
+		g_alMeleeDefault.PushString("pitchfork");
+		g_alMeleeDefault.PushString("shovel");
+		g_alMeleeDefault.PushString("riotshield");
 	}
-
-
-
-	// ====================================================================================================
-	// LATE LOAD
-	// ====================================================================================================
-	if( g_bLateLoad )
-	{
-		IsAllowed();
-
-		g_bHeartbeat = LibraryExists("l4d_heartbeat");
-
-		if( g_bCvarAllow )
-		{
-			int weapon;
-
-			for( int i = 1; i <= MaxClients; i++ )
-			{
-				if( IsClientInGame(i) && GetClientTeam(i) == 2 && IsPlayerAlive(i) && GetEntProp(i, Prop_Send, "m_isIncapacitated", 1) && GetEntProp(i, Prop_Send, "m_isHangingFromLedge", 1) == 0 )
-				{
-					SDKHook(i, SDKHook_WeaponCanSwitchTo, CanSwitchTo);
-					
-					weapon = GetEntPropEnt(i, Prop_Send, "m_hActiveWeapon");
-					if( weapon != -1 ) CanSwitchTo(i, weapon);
-
-					if( (!g_bCvarThrow || g_iCvarHealAdren || g_iCvarHealPills) && !IsFakeClient(i) )
-					{
-						// Heal with Pills/Adrenaline
-						if( !g_bLeft4Dead2 && (g_iCvarHealPills || g_iCvarHealAdren) )
-						{
-							SDKHook(i, SDKHook_PreThink, OnThinkPre);
-						}
-
-						// Prevent standing up animation when throwing grenades, or hook healing in L4D2
-						if( !g_bCvarThrow || g_bLeft4Dead2 ) // L4D2 uses anim hook for detecting pills, L4D1 uses the PreThink
-						{
-							AnimHookEnable(i, OnAnimPre);
-						}
-					}
-				}
-			}
-		}
-	}
-
-	AddCommandListener(CommandListenerGive, "give");
-
-	RegAdminCmd("sm_incap", CmdIncap, ADMFLAG_ROOT, "Incapacitated a player. Usage: [#userid|name] or no args to select self.");
 }
 
-Action CommandListenerGive(int client, const char[] command, int args)
+Action CmdListenBlock(int client, const char[] command, int argc)
 {
-	if( g_bCvarAllow && args > 0 )
-	{
-		char buffer[8];
-		GetCmdArg(1, buffer, sizeof(buffer));
+	client = IsDedicatedServer() ? client : (client > 1 ? client : 0);
 
-		if( strcmp(buffer, "health", false) == 0 )
-		{
-			DamageHook(true);
-		}
-	}
-
+	if( client )
+		return Plugin_Handled;
 	return Plugin_Continue;
 }
 
-Action CmdIncap(int client, int args)
+public void OnMapStart()
 {
-	if( !client && !args )
+	if( g_bLeft4Dead2 )
 	{
-		ReplyToCommand(client, "Command can only be used %s", IsDedicatedServer() ? "in game on a Dedicated server." : "in chat on a Listen server.");
-		return Plugin_Handled;
+		// Taken from MeleeInTheSaferoom
+		PrecacheModel("models/weapons/melee/v_bat.mdl", true);
+		PrecacheModel("models/weapons/melee/v_cricket_bat.mdl", true);
+		PrecacheModel("models/weapons/melee/v_crowbar.mdl", true);
+		PrecacheModel("models/weapons/melee/v_electric_guitar.mdl", true);
+		PrecacheModel("models/weapons/melee/v_fireaxe.mdl", true);
+		PrecacheModel("models/weapons/melee/v_frying_pan.mdl", true);
+		PrecacheModel("models/weapons/melee/v_golfclub.mdl", true);
+		PrecacheModel("models/weapons/melee/v_katana.mdl", true);
+		PrecacheModel("models/weapons/melee/v_knife_t.mdl", true);
+		PrecacheModel("models/weapons/melee/v_machete.mdl", true);
+		PrecacheModel("models/weapons/melee/v_tonfa.mdl", true);
+		PrecacheModel("models/weapons/melee/v_pitchfork.mdl", true);
+		PrecacheModel("models/weapons/melee/v_shovel.mdl", true);
+
+		PrecacheModel("models/weapons/melee/w_bat.mdl", true);
+		PrecacheModel("models/weapons/melee/w_cricket_bat.mdl", true);
+		PrecacheModel("models/weapons/melee/w_crowbar.mdl", true);
+		PrecacheModel("models/weapons/melee/w_electric_guitar.mdl", true);
+		PrecacheModel("models/weapons/melee/w_fireaxe.mdl", true);
+		PrecacheModel("models/weapons/melee/w_frying_pan.mdl", true);
+		PrecacheModel("models/weapons/melee/w_golfclub.mdl", true);
+		PrecacheModel("models/weapons/melee/w_katana.mdl", true);
+		PrecacheModel("models/weapons/melee/w_knife_t.mdl", true);
+		PrecacheModel("models/weapons/melee/w_machete.mdl", true);
+		PrecacheModel("models/weapons/melee/w_tonfa.mdl", true);
+		PrecacheModel("models/weapons/melee/w_pitchfork.mdl", true);
+		PrecacheModel("models/weapons/melee/w_shovel.mdl", true);
+
+		PrecacheGeneric("scripts/melee/baseball_bat.txt", true);
+		PrecacheGeneric("scripts/melee/cricket_bat.txt", true);
+		PrecacheGeneric("scripts/melee/crowbar.txt", true);
+		PrecacheGeneric("scripts/melee/electric_guitar.txt", true);
+		PrecacheGeneric("scripts/melee/fireaxe.txt", true);
+		PrecacheGeneric("scripts/melee/frying_pan.txt", true);
+		PrecacheGeneric("scripts/melee/golfclub.txt", true);
+		PrecacheGeneric("scripts/melee/katana.txt", true);
+		PrecacheGeneric("scripts/melee/knife.txt", true);
+		PrecacheGeneric("scripts/melee/machete.txt", true);
+		PrecacheGeneric("scripts/melee/tonfa.txt", true);
+		PrecacheGeneric("scripts/melee/pitchfork.txt", true);
+		PrecacheGeneric("scripts/melee/shovel.txt", true);
+	}
+}
+
+public void OnMapEnd()
+{
+	g_bLoadNewMap = true;
+}
+
+void ConVarChanged_Mode(Handle convar, const char[] oldValue, const char[] newValue)
+{
+	g_hCvarMPGameMode.GetString(g_sGameMode, sizeof(g_sGameMode));
+}
+
+void ConVarChanged_Diff(Handle convar, const char[] oldValue, const char[] newValue)
+{
+	g_hCvarDifficulty.GetString(g_sDifficulty, sizeof(g_sDifficulty));
+
+	if( strcmp(g_sDifficulty, "Easy", false) == 0 )					g_sDifficulty = "easy";
+	else if( strcmp(g_sDifficulty, "Normal", false) == 0 )			g_sDifficulty = "normal";
+	else if( strcmp(g_sDifficulty, "Hard", false) == 0 )			g_sDifficulty = "hard";
+	else if( strcmp(g_sDifficulty, "Impossible", false) == 0 )		g_sDifficulty = "expert";
+}
+
+void ConVarChanged_Suff(Handle convar, const char[] oldValue, const char[] newValue)
+{
+	g_hCvarSuffixMission.GetString(g_sCvarSuffixMission, sizeof(g_sCvarSuffixMission));
+	g_hCvarSuffixWeapons.GetString(g_sCvarSuffixWeapons, sizeof(g_sCvarSuffixWeapons));
+}
+
+
+
+// ====================================================================================================
+//					COMMANDS - sm_info_melee
+// ====================================================================================================
+Action CmdInfoMelee(int client, int args)
+{
+	char sTemp[256];
+
+	ArrayList aTabs = new ArrayList(ByteCountToCells(MAX_MELEE_STRING));
+	ArrayList aMiss = new ArrayList(ByteCountToCells(MAX_MELEE_STRING));
+
+	// StringTable data
+	int table = INVALID_STRING_TABLE;
+	if( table == INVALID_STRING_TABLE )
+	{
+		table = FindStringTable("MeleeWeapons");
 	}
 
-	if( args == 0 )
+	int total = GetStringTableNumStrings(table);
+	int max = GetStringTableMaxStrings(table);
+
+	for( int i = 0; i < total; i++ )
 	{
-		SDKHooks_TakeDamage(client, client, client, L4D_GetTempHealth(client) + float(GetClientHealth(client)));
+		ReadStringTable(table, i, sTemp, sizeof(sTemp));
+
+		aTabs.PushString(sTemp);
+
+		ReplyToCommand(client, "StringTable %2d: [%s]", i + 1, sTemp);
+	}
+
+	// Mission data
+	if( g_PointerMission )
+	{
+		int mission = 0;
+		ReplyToCommand(client, " ");
+
+		SDKCall(SDK_KV_GetString, g_PointerMission, sTemp, sizeof(sTemp), "meleeweapons", "N/A");
+
+		if( sTemp[0] && strcmp(sTemp, "N/A") )
+		{
+			int last, pos;
+			bool loop = true;
+
+			while( loop )
+			{
+				pos = FindCharInString(sTemp[last], ';');
+				if( pos != -1 )
+				{
+					pos += last;
+					sTemp[pos] = 0;
+				}
+				else
+				{
+					loop = false;
+				}
+
+				mission++;
+				aMiss.PushString(sTemp[last]);
+				ReplyToCommand(client, "MissionData %2d: [%s]", mission, sTemp[last]);
+
+				last = pos + 1;
+			}
+		}
+
+		ReplyToCommand(client, "Total melee weapons: %d/%d", total, max);
+
+
+
+		// Verify lengths match
+		int lenMiss = aMiss.Length;
+		int lenTabs = aTabs.Length;
+		if( lenMiss != lenTabs )
+		{
+			ReplyToCommand(client, " ");
+			ReplyToCommand(client, "Melee length mismatch: Mission %d != StringTable %d", lenMiss, lenTabs);
+		}
+
+		// Verify lists match
+		char sTabs[MAX_MELEE_STRING];
+
+		if( lenMiss < lenTabs )
+			max = lenMiss;
+		else
+			max = lenTabs;
+
+		for( int i = 0; i < max; i++ )
+		{
+			aMiss.GetString(i, sTemp, sizeof(sTemp));
+			aTabs.GetString(i, sTabs, sizeof(sTabs));
+
+			if( strcmp(sTemp, sTabs) )
+			{
+				ReplyToCommand(client, "Melee mismatch: %d Mission [%s] != StringTable [%s]", i, sTemp, sTabs);
+			}
+		}
 	}
 	else
 	{
-		char arg1[MAX_TARGET_LENGTH];
-		GetCmdArg(1, arg1, sizeof(arg1));
-
-		char target_name[MAX_TARGET_LENGTH];
-		int target_list[MAXPLAYERS], target_count;
-		bool tn_is_ml;
-
-		if( (target_count = ProcessTargetString(
-			arg1,
-			client,
-			target_list,
-			MAXPLAYERS,
-			COMMAND_FILTER_ALIVE,
-			target_name,
-			sizeof(target_name),
-			tn_is_ml)) <= 0)
-		{
-			ReplyToTargetError(client, target_count);
-			return Plugin_Handled;
-		}
-
-		int target;
-
-		for( int i = 0; i < target_count; i++ )
-		{
-			target = target_list[i];
-
-			SDKHooks_TakeDamage(target, target, target, L4D_GetTempHealth(client) + float(GetClientHealth(client)));
-		}
+		ReplyToCommand(client, "No mission pointer");
 	}
 
 	return Plugin_Handled;
 }
 
-public void OnPluginEnd()
-{
-	PatchAddress(false);
-	PatchBullet(false);
-	PatchMelee(false);
-}
-
 
 
 // ====================================================================================================
-//					RESET VARS
+//					COMMANDS - sm_info_reload
 // ====================================================================================================
-public void OnMapStart()
+Action CmdInfoReload(int client, int args)
 {
-	// PipeBomb projectile
-	PrecacheParticle(PARTICLE_FUSE);
-	PrecacheParticle(PARTICLE_LIGHT);
+	ReloadData();
+	ReplyToCommand(client, "[Info Editor] Reloaded configs and weapon attributes.");
+	return Plugin_Handled;
 }
 
-public void OnMapEnd()
+int Native_ReloadData(Handle plugin, int numParams)
 {
+	ReloadData();
+	return 0;
+}
+
+void ReloadData()
+{
+	// Weapons Info is re-parsed via command in this function.
 	ResetPlugin();
 
-	DamageHook(false);
-
-	for( int i = 1; i <= MaxClients; i++ )
-		ClearVars(i);
-}
-
-public void OnClientPutInServer(int client)
-{
-	if( g_bCvarAllow )
-	{
-		DamageHook(true);
-	}
-}
-
-public void OnClientDisconnect(int client)
-{
-	ClearVars(client);
-}
-
-void ClearVars(int client)
-{
-	delete g_hTimerRevive[client];
-	delete g_hTimerUseHealth[client];
-
-	g_iIncapAmmo[client] = 0;
-	g_sIncapType[client][0] = 0;
-	g_bIsPills[client] = false;
-	g_bHasHeal[client] = false;
-	g_fReviveTimer[client] = 0.0;
-	g_iHint[client] = 0;
+	if( g_PointerMission )
+		SetMissionData();
 }
 
 
 
 // ====================================================================================================
-//					CVARS
+//					COMMANDS - sm_info_mission
 // ====================================================================================================
-public void OnConfigsExecuted()
+Action CmdInfoMission(int client, int args)
 {
-	IsAllowed();
-}
-
-void ConVarChanged_Allow(Handle convar, const char[] oldValue, const char[] newValue)
-{
-	IsAllowed();
-}
-
-void ConVarChanged_Cvars(Handle convar, const char[] oldValue, const char[] newValue)
-{
-	GetCvars();
-}
-
-void GetCvars()
-{
-	if( g_bLeft4Dead2 )
+	if( g_PointerMission == 0 )
 	{
-		g_iCvarHealAdren = g_hCvarHealAdren.IntValue;
-		g_fCvarDelayAdren = g_hCvarDelayAdren.FloatValue;
-	}
-	g_fCvarDelayPills = g_hCvarDelayPills.FloatValue;
-	g_iCvarDelayText = g_hCvarDelayText.IntValue;
-	g_fCvarFriendly = g_hCvarFriendly.FloatValue;
-	g_iCvarHealPills = g_hCvarHealPills.IntValue;
-	g_iCvarHealRevive = g_hCvarHealRevive.IntValue;
-	g_iCvarHealText = g_hCvarHealText.IntValue;
-	g_iCvarMaxIncap = g_hCvarMaxIncap.IntValue;
-	g_iCvarIncapHealth = g_hCvarIncapHealth.IntValue;
-	g_iCvarReviveHealth = g_hCvarReviveHealth.IntValue;
-	g_iCvarReviveTemp = g_hCvarReviveTemp.IntValue;
-	g_iCvarRevive = g_hCvarRevive.IntValue;
-	g_bCvarThrow = g_hCvarThrow.BoolValue;
-
-	if( g_bLeft4Dead2 )
-	{
-		g_iCvarPist = g_hCvarPist.IntValue;
-		g_iCvarMelee = g_hCvarMelee.IntValue;
-
-		PatchBullet(g_bCvarAllow && g_fCvarFriendly != 0.0);
-		PatchMelee(g_bCvarAllow && g_iCvarPist == 0);
-		DamageHook(g_bCvarAllow);
+		ReplyToCommand(client, "[Info] Error: no mission pointer. invalid game mode for this map?");
+		return Plugin_Handled;
 	}
 
-	// Add weapon IDs to array
-	char sTemp[128];
-	g_hCvarRest.GetString(sTemp, sizeof(sTemp));
-
-	delete g_aRestrict;
-	g_aRestrict = new ArrayList();
-
-	if( sTemp[0] )
+	if( args == 1 )
 	{
-		StrCat(sTemp, sizeof(sTemp), ",");
+		char key[MAX_STRING_LENGTH];
+		char value[MAX_STRING_LENGTH];
+		GetCmdArg(1, key, sizeof(key));
 
-		int index, last;
-		while( (index = StrContains(sTemp[last], ",")) != -1 )
+		SDKCall(SDK_KV_GetString, g_PointerMission, value, sizeof(value), key, "N/A");
+		ReplyToCommand(client, "[Info] Key \"%s\" = \"%s\"", key, value);
+	}
+
+	else if( args == 2 )
+	{
+		char key[MAX_STRING_LENGTH];
+		char value[MAX_STRING_LENGTH];
+		char check[MAX_STRING_LENGTH];
+		GetCmdArg(1, key, sizeof(key));
+		GetCmdArg(2, value, sizeof(value));
+
+		// Check value
+		SDKCall(SDK_KV_GetString, g_PointerMission, check, sizeof(check), key, "N/A");
+
+		// Create if not found.
+		bool existed = true;
+
+		if( strcmp(check, "N/A") == 0 )
 		{
-			sTemp[last + index] = 0;
-			g_aRestrict.Push(StringToInt(sTemp[last]));
-			sTemp[last + index] = ',';
-			last += index + 1;
-		}
-	}
-}
+			SDKCall(SDK_KV_FindKey, g_PointerMission, key, true);
 
-void IsAllowed()
-{
-	bool bCvarAllow = g_hCvarAllow.BoolValue;
-	bool bAllowMode = IsAllowedGameMode();
-	GetCvars();
-
-	if( g_bCvarAllow == false && bCvarAllow == true && bAllowMode == true )
-	{
-		g_bCvarAllow = true;
-		PatchAddress(true);
-		PatchBullet(g_fCvarFriendly != 0.0);
-		PatchMelee(g_iCvarPist == 0);
-		HookEvents();
-		DetourAdd();
-		DamageHook(true);
-	}
-
-	else if( g_bCvarAllow == true && (bCvarAllow == false || bAllowMode == false) )
-	{
-		g_bCvarAllow = false;
-		PatchAddress(false);
-		PatchBullet(false);
-		PatchMelee(false);
-		UnhookEvents();
-		DetourRem();
-		ResetPlugin();
-		DamageHook(false);
-	}
-}
-
-int g_iCurrentMode;
-public void L4D_OnGameModeChange(int gamemode)
-{
-	g_iCurrentMode = gamemode;
-}
-
-bool IsAllowedGameMode()
-{
-	if( g_hCvarMPGameMode == null )
-		return false;
-
-	int iCvarModesTog = g_hCvarModesTog.IntValue;
-	if( iCvarModesTog != 0 )
-	{
-		if( g_iCurrentMode == 0 )
-			g_iCurrentMode = L4D_GetGameModeType();
-
-		if( g_iCurrentMode == 0 )
-			return false;
-
-		switch( g_iCurrentMode ) // Left4DHooks values are flipped for these modes, sadly
-		{
-			case 2:		g_iCurrentMode = 4;
-			case 4:		g_iCurrentMode = 2;
+			existed = false;
 		}
 
-		if( !(iCvarModesTog & g_iCurrentMode) )
-			return false;
-	}
+		SDKCall(SDK_KV_SetString, g_PointerMission, key, value);
 
-	char sGameModes[64], sGameMode[64];
-	g_hCvarMPGameMode.GetString(sGameMode, sizeof(sGameMode));
-	Format(sGameMode, sizeof(sGameMode), ",%s,", sGameMode);
-
-	g_hCvarModes.GetString(sGameModes, sizeof(sGameModes));
-	if( sGameModes[0] )
-	{
-		Format(sGameModes, sizeof(sGameModes), ",%s,", sGameModes);
-		if( StrContains(sGameModes, sGameMode, false) == -1 )
-			return false;
-	}
-
-	g_hCvarModesOff.GetString(sGameModes, sizeof(sGameModes));
-	if( sGameModes[0] )
-	{
-		Format(sGameModes, sizeof(sGameModes), ",%s,", sGameModes);
-		if( StrContains(sGameModes, sGameMode, false) != -1 )
-			return false;
-	}
-
-	return true;
-}
-
-
-
-// ====================================================================================================
-//					EVENTS
-// ====================================================================================================
-void HookEvents()
-{
-	HookEvent("player_incapacitated",		Event_Incapped);
-	HookEvent("bot_player_replace",			Event_Swap_User);
-	HookEvent("revive_begin",				Event_ReviveBegin);
-	HookEvent("revive_success",				Event_ReviveSuccess);
-	HookEvent("player_spawn",				Event_PlayerSpawn);
-	HookEvent("player_death",				Event_PlayerDeath);
-	HookEvent("player_team",				Event_PlayerDeath);
-	HookEvent("round_start",				Event_RoundStart,	EventHookMode_PostNoCopy);
-}
-
-void UnhookEvents()
-{
-	UnhookEvent("player_incapacitated",		Event_Incapped);
-	UnhookEvent("bot_player_replace",		Event_Swap_User);
-	UnhookEvent("revive_begin",				Event_ReviveBegin);
-	UnhookEvent("revive_success",			Event_ReviveSuccess);
-	UnhookEvent("player_spawn",				Event_PlayerSpawn);
-	UnhookEvent("player_death",				Event_PlayerDeath);
-	UnhookEvent("player_team",				Event_PlayerDeath);
-	UnhookEvent("round_start",				Event_RoundStart,	EventHookMode_PostNoCopy);
-}
-
-
-
-// ====================================================================================================
-//					EVENTS - player_incapacitated
-// ====================================================================================================
-void Event_Incapped(Event event, const char[] name, bool dontBroadcast)
-{
-	DoIncapped(event.GetInt("userid"));
-}
-
-void Event_Swap_User(Event event, const char[] name, bool dontBroadcast)
-{
-	int userid = event.GetInt("player");
-	int client = GetClientOfUserId(userid);
-
-	if( GetEntProp(client, Prop_Send, "m_isIncapacitated", 1) && GetEntProp(client, Prop_Send, "m_isHangingFromLedge", 1) == 0 )
-	{
-		DoIncapped(userid);
-	}
-}
-
-// Incap event / take over bot
-void DoIncapped(int userid)
-{
-	int client = GetClientOfUserId(userid);
-	if( client && GetClientTeam(client) == 2 )
-	{
-		if( (!g_bCvarThrow || g_iCvarHealAdren || g_iCvarHealPills) && !IsFakeClient(client) )
-		{
-			// Heal with Pills/Adrenaline
-			if( !g_bLeft4Dead2 && (g_iCvarHealPills || g_iCvarHealAdren) )
-			{
-				SDKHook(client, SDKHook_PreThink, OnThinkPre);
-			}
-
-			// Prevent standing up animation when throwing grenades, or hook healing in L4D2
-			if( !g_bCvarThrow || g_bLeft4Dead2 ) // L4D2 uses anim hook for detecting pills, L4D1 uses the PreThink
-			{
-				AnimHookEnable(client, OnAnimPre);
-			}
-
-			// Heal or Revive hint text
-			if( g_iCvarHealText )
-			{
-				CreateTimer(DELAY_HINT, TimerIncap, userid);
-			}
-		}
-
-		// Melee weapons block friendly fire
-		DamageHook(true);
-
-		// For weapon restrictions
-		SDKHook(client, SDKHook_WeaponCanSwitchTo, CanSwitchTo);
-
-		// Active allowed
-		int weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
-		if( weapon != -1 && ValidateWeapon(client, weapon) ) return;
-
-		// Switch to primary/pistol/melee/other valid if current weapon restricted, otherwise do nothing.
-		g_sIncapType[client][0] = 0;
-
-		bool hasWeapon;
-		for( int i = 0; i < 5; i++ )
-		{
-			weapon = GetPlayerWeaponSlot(client, i);
-			if( weapon != -1 && ValidateWeapon(client, weapon) )
-			{
-				if( i < 2 )
-				{
-					hasWeapon = true;
-				}
-
-				return;
-			}
-
-			if( !hasWeapon && i == 1 )
-			{
-				if( weapon != -1 )
-				{
-					static char classname[32];
-					GetEdictClassname(weapon, classname, sizeof(classname));
-
-					int index;
-					g_aWeaponIDs.GetValue(classname, index);
-
-					g_iIncapAmmo[client] = GetEntProp(weapon, Prop_Send, "m_iClip1");
-					if( g_bLeft4Dead2 && strcmp(classname[7], "melee") == 0 )
-					{
-						GetEntPropString(weapon, Prop_Data, "m_strMapSetScriptName", classname, sizeof(classname));
-					}
-
-					g_sIncapType[client] = classname;
-
-					RemovePlayerItem(client, weapon);
-					RemoveEntity(weapon);
-				}
-
-				int entity = GivePlayerItem(client, "weapon_pistol");
-				if( entity != INVALID_ENT_REFERENCE )
-				{
-					RemovePlayerItem(client, entity);
-					EquipPlayerWeapon(client, entity);
-				}
-			}
-		}
-	}
-}
-
-bool ValidateWeapon(int client, int weapon)
-{
-	static char classname[32];
-	GetEdictClassname(weapon, classname, sizeof(classname));
-
-	int index;
-	g_aWeaponIDs.GetValue(classname, index);
-
-	if( g_bLeft4Dead2 )
-	{
-		if( index == 15 || index == 23 ) // Pills / Adren
-			g_bHasHeal[client] = true;
+		if( existed )
+			ReplyToCommand(client, "[Info] Set \"%s\" to \"%s\"", key, value);
 		else
-			g_bHasHeal[client] = false;
+			ReplyToCommand(client, "[Info] Created \"%s\" set \"%s\"", key, value);
 	}
+
 	else
 	{
-		g_bHasHeal[client] = index == 12; // Pills
+		ReplyToCommand(client, "Usage: sm_info_mission <keyname> [value]");
+		return Plugin_Handled;
 	}
 
-	if( index != 0 && g_aRestrict.FindValue(index) == -1 )
-	{
-		SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", weapon);
-		return true;
-	}
-
-	return false;
+	return Plugin_Handled;
 }
 
+
+
 // ====================================================================================================
-//					EVENTS - hint messages
+//					COMMANDS - sm_info_mission_list
 // ====================================================================================================
-Action TimerIncap(Handle timer, int client)
+Action CmdInfoMissionList(int client, int args)
 {
-	client = GetClientOfUserId(client);
-	if( client && IsClientInGame(client) )
+	ReplyToCommand(client, "=============================");
+	ReplyToCommand(client, "===== MISSION INFO DATA =====");
+	ReplyToCommand(client, "=============================");
+	ReplyToCommand(client, " ");
+	ReplyToCommand(client, "Config: %s", g_sConfigMission);
+	ReplyToCommand(client, " ");
+
+	char key[MAX_STRING_LENGTH];
+	char value[MAX_STRING_LENGTH];
+	int length = g_alMissionData.Length;
+
+	for( int i = 0; i < length; i += 2 )
 	{
-		static char sTemp[256];
-		int item = GetPlayerWeaponSlot(client, 4);
-		if( item != -1 )
+		g_alMissionData.GetString(i, key, sizeof(key));
+		g_alMissionData.GetString(i + 1, value, sizeof(value));
+
+		ReplyToCommand(client, "%s %s", key, value);
+	}
+
+	ReplyToCommand(client, "=============================");
+	return Plugin_Handled;
+}
+
+
+
+// ====================================================================================================
+//					COMMANDS - sm_info_weapons_list
+// ====================================================================================================
+Action CmdInfoWeaponsList(int client, int args)
+{
+	ReplyToCommand(client, "=============================");
+	ReplyToCommand(client, "===== WEAPONS INFO DATA =====");
+	ReplyToCommand(client, "=============================");
+	ReplyToCommand(client, " ");
+	ReplyToCommand(client, "Config: %s", g_sConfigWeapons);
+	ReplyToCommand(client, " ");
+
+	ArrayList aHand;
+	int size;
+	int length = g_alWeaponsData.Length;
+	char key[MAX_STRING_LENGTH];
+	char value[MAX_STRING_LENGTH];
+	char check[MAX_STRING_LENGTH];
+
+	for( int x = 0; x < length; x++ )
+	{
+		// Weapon classname
+		aHand = g_alWeaponsData.Get(x);
+		aHand.GetString(0, check, sizeof(check));
+
+		ReplyToCommand(client, check);
+
+		// Weapon keys and values
+		size = aHand.Length;
+		for( int i = 1; i < size; i+=2 )
 		{
-			int type;
+			aHand.GetString(i, key, sizeof(key));
+			aHand.GetString(i+1, value, sizeof(value));
+			ReplyToCommand(client, "... %s %s", key, value);
+		}
 
-			// Check healing item type
-			GetEdictClassname(item, sTemp, sizeof(sTemp));
+		ReplyToCommand(client, "");
+	}
 
-			if( strncmp(sTemp[7], "pain", 4) == 0 )
-			{
-				if( g_iCvarHealPills == -1 ) type = 1;
-				else type = 2;
-			}
-			else if( g_bLeft4Dead2 && strncmp(sTemp[7], "adren", 5) == 0 )
-			{
-				if( g_iCvarHealAdren == -1 ) type = 3;
-				else type = 4;
-			}
+	ReplyToCommand(client, "=============================");
+	return Plugin_Handled;
+}
 
-			// Prevent message if item type blocked
-			switch( type )
-			{
-				case 1, 2: if( (g_bLeft4Dead2 && g_aRestrict.FindValue(15) != -1) || (!g_bLeft4Dead2 && g_aRestrict.FindValue(12) != -1) ) return Plugin_Continue;
-				case 3, 4: if( g_aRestrict.FindValue(23) != -1 ) return Plugin_Continue;
-			}
 
-			// Show hints for item type held and type of feature
-			if( type )
+
+// ====================================================================================================
+//					DETOUR - Mission
+// ====================================================================================================
+MRESReturn GetMissionInfo(DHookReturn hReturn, DHookParam hParams)
+{
+	// Load new map data
+	if( g_bLoadNewMap ) ResetPlugin();
+
+	// Pointer
+	int pThis = DHookGetReturn(hReturn);
+	g_PointerMission = pThis;
+	if( pThis == 0 ) return MRES_Ignored; // Some maps the mission file does not load (most likely due to gamemode not being supported).
+
+	SetMissionData();
+
+	// Forward
+	Call_StartForward(g_hForwardOnGetMission);
+	Call_PushCell(pThis);
+	Call_Finish();
+
+	return MRES_Ignored;
+}
+
+void SetMissionData()
+{
+	// Mission Info has no command, but we can manually set changes with ease.
+	static char key[MAX_STRING_LENGTH];
+	static char value[MAX_STRING_LENGTH];
+	static char extra[MAX_STRING_LENGTH];
+	static char check[MAX_STRING_LENGTH];
+	static char defs[MAX_STRING_LENGTH];
+	static char temp[MAX_MELEE_STRING];
+	static char path[PLATFORM_MAX_PATH];
+
+	// Loop through Info Editor config
+	bool write;
+	int last;
+	int pos;
+	extra[0] = 0;
+	check[0] = 0;
+
+	for( int i = 0; i < g_alMissionData.Length; i += 2 )
+	{
+		g_alMissionData.GetString(i, key, sizeof(key));
+		g_alMissionData.GetString(i + 1, value, sizeof(value));
+
+		SDKCall(SDK_KV_GetString, g_PointerMission, defs, sizeof(defs), key, "N/A");
+
+		// Dynamic Melee Weapons:
+		if( g_bLeft4Dead2 && strcmp(key, "meleeweapons") == 0 )
+		{
+			g_bHasMelee = true;
+			write = false;
+
+			// Ignore unknown melee weapons that have no valid script (default mission data)
+			ValidateMelee(defs);
+
+			// Ignore unknown melee weapons that have no valid script (custom mission data)
+			ValidateMelee(value);
+
+			// Add manifest entries for custom melee weapons when the mission file does not supply the "meleeweapons" string
+			// Ignore these default melee weapons
+			if( g_alMeleeCustoms )
 			{
-				if( g_bTranslations )
+				int total = g_alMeleeCustoms.Length;
+
+				// Loop through manifest melee weapon scripts
+				for( int x = 0; x < total; x++ )
 				{
-					switch( type )
-					{
-						case 1: sTemp = "Revive_UsePills";
-						case 2: sTemp = "Heal_UsePills";
-						case 3: sTemp = "Revive_UseAdren";
-						case 4: sTemp = "Heal_UseAdren";
-					}
+					g_alMeleeCustoms.GetString(x, temp, sizeof(temp));
 
-					switch( g_iCvarHealText )
+					// Only add unknown melee weapons
+					if( g_alMeleeDefault.FindString(temp) == -1 && StrContains(check, temp) == -1 )
 					{
-						case 2: CPrintHintText(client, "%T", sTemp, client);
-						default: CPrintToChat(client, "%T", sTemp, client);
+						StrCat(check, sizeof(check), temp);
+						StrCat(check, sizeof(check), ";");
 					}
 				}
-				else
+
+				// Remove trailing ";"
+				pos = strlen(check);
+				if( pos )
 				{
-					switch( g_iCvarHealText )
+					check[pos - 1] = 0;
+				}
+
+				// Manifest has custom entries
+				if( check[0] )
+				{
+					// If the maps "meleeweapons" string is empty, set them from the manifest
+					if( strcmp(defs, "N/A") == 0 )
 					{
-						case 2:
-						{
-							switch( type )
-							{
-								case 1: sTemp = "[Revive] you can use Pills to revive";
-								case 2: sTemp = "[Revive] you can use Pills to heal";
-								case 3: sTemp = "[Revive] you can use Adrenaline to revive";
-								case 4: sTemp = "[Revive] you can use Adrenaline to heal";
-							}
+						write = true;
+						strcopy(defs, sizeof(defs), check);
+					}
+				}
+				// If the manifest has been read
+				else if( g_bManifest )
+				{
+					// If the maps "meleeweapons" string is empty, set them from the data config
+					if( strcmp(defs, "N/A") == 0 )
+					{
+						write = true;
+						strcopy(defs, sizeof(defs), value);
+					}
+				}
+			}
 
-							PrintHintText(client, sTemp);
-						}
-						default:
-						{
-							switch( type )
-							{
-								case 1: sTemp = "\x05[Revive] \x01you can use \x04Pills \x01to revive";
-								case 2: sTemp = "\x05[Revive] \x01you can use \x04Pills \x01to heal";
-								case 3: sTemp = "\x05[Revive] \x01you can use \x04Adrenaline \x01to revive";
-								case 4: sTemp = "\x05[Revive] \x01you can use \x04Adrenaline \x01to heal";
-							}
+			// "meleeweapons" string is not empty
+			if( strcmp(defs, "N/A") )
+			{
+				// Replace game default melee weapons
+				FormatEx(check, sizeof(check), ";%s;", defs);
+				ReplaceStringEx(check, sizeof(check), ";baseball_bat;", ";");
+				ReplaceStringEx(check, sizeof(check), ";cricket_bat;", ";");
+				ReplaceStringEx(check, sizeof(check), ";crowbar;", ";");
+				ReplaceStringEx(check, sizeof(check), ";electric_guitar;", ";");
+				ReplaceStringEx(check, sizeof(check), ";fireaxe;", ";");
+				ReplaceStringEx(check, sizeof(check), ";frying_pan;", ";");
+				ReplaceStringEx(check, sizeof(check), ";golfclub;", ";");
+				ReplaceStringEx(check, sizeof(check), ";katana;", ";");
+				ReplaceStringEx(check, sizeof(check), ";knife;", ";");
+				ReplaceStringEx(check, sizeof(check), ";machete;", ";");
+				ReplaceStringEx(check, sizeof(check), ";tonfa;", ";");
+				ReplaceStringEx(check, sizeof(check), ";pitchfork;", ";");
+				ReplaceStringEx(check, sizeof(check), ";shovel;", ";");
+				ReplaceStringEx(check, sizeof(check), ";riotshield;", ";");
 
-							PrintToChat(client, sTemp);
+				// Prevent duplicate entries
+				pos = 1;
+				while( (last = SplitString(check[pos], ";", temp, sizeof(temp))) != -1 )
+				{
+					if( StrContains(value, temp) == -1 && StrContains(extra, temp) == -1 )
+					{
+						// Ignore unknown melee weapons that have no valid script
+						FormatEx(path, sizeof(path), "scripts/melee/%s", temp);
+						if( FileExists(path, true) )
+						{
+							Format(extra, sizeof(extra), "%s;%s", extra, temp);
 						}
 					}
+
+					pos += last;
+				}
+
+				if( extra[0] )
+				{
+					Format(value, sizeof(value), "%s;%s", extra[1], value);
+				}
+
+				// Prevent setting over melee weapons limit
+				pos = 0;
+				for( int x = 0; x < MAX_MELEE_LIMITS; x++ )
+				{
+					last = FindCharInString(value[pos], ';');
+					if( last == -1 ) break;
+
+					pos += last + 1;
+
+					if( x == MAX_MELEE_LIMITS - 1 )
+					{
+						value[pos] = 0;
+						break;
+					}
+				}
+
+				// Remove trailing ;
+				pos = strlen(value);
+				if( pos > 0 )
+				{
+					if( value[pos - 1] == ';' ) value[pos - 1] = 0;
+				}
+			}
+		}
+
+		// Overwrite different values
+		if( write || strcmp(defs, value) )
+		{
+			if( strcmp(defs, "N/A") == 0 )
+			{
+				SDKCall(SDK_KV_FindKey, g_PointerMission, key, true);
+
+				#if DEBUG_VALUES
+				PrintToServer(">>> MissionInfo: Attempted to create \"%s\"", key);
+				SDKCall(SDK_KV_SetString, g_PointerMission, key, "");
+
+				SDKCall(SDK_KV_GetString, g_PointerMission, check, sizeof(check), key, "N/A");
+				PrintToServer(">>> MissionInfo: \"%s\" contains: \"%s\"", key, check);
+				#endif
+			#if DEBUG_VALUES
+			} else {
+				PrintToServer(">>> MissionInfo: Set \"%s\" to \"%s\". Was \"%s\"", key, value, defs);
+			#endif
+			}
+
+			SDKCall(SDK_KV_SetString, g_PointerMission, key, value);
+		}
+	}
+}
+
+void ValidateMelee(char input[MAX_STRING_LENGTH])
+{
+	static char buffer[MAX_MELEE_STRING];
+	static char output[MAX_STRING_LENGTH];
+	static char path[PLATFORM_MAX_PATH];
+	int pos;
+	int last;
+
+	output[0] = 0;
+
+	if( input[0] )
+	{
+		StrCat(input, sizeof(input), ";");
+
+		while( (last = SplitString(input[pos], ";", buffer, sizeof(buffer))) != -1 )
+		{
+			// Ignore unknown melee weapons that have no valid script
+			FormatEx(path, sizeof(path), "scripts/melee/%s.txt", buffer);
+
+			if( FileExists(path, true) )
+			{
+				Format(output, sizeof(output), "%s;%s", output, buffer);
+			}
+
+			pos += last;
+		}
+	}
+
+	if( output[0] )
+	{
+		strcopy(input, sizeof(input), output[1]);
+	}
+}
+
+
+
+// ====================================================================================================
+//					DETOURS - Melee patches
+// ====================================================================================================
+MRESReturn MeleeWeaponAllowedToExist(DHookReturn hReturn, DHookParam hParams)
+{
+	hReturn.Value = true;
+	return MRES_Override;
+}
+
+MRESReturn LoadScriptsFromManifest(DHookReturn hReturn, DHookParam hParams)
+{
+	if( g_bLoadNewMap )
+	{
+		ResetPlugin();
+		SetMissionData();
+	}
+
+	g_bManifest = true;
+
+	if( g_bHasMelee )
+	{
+		hReturn.Value = 0;
+		return MRES_Supercede;
+	}
+
+	return MRES_Ignored;
+}
+
+MRESReturn GetMeleeWeaponInfo(DHookReturn hReturn, DHookParam hParams)
+{
+	WeaponInfoFunction(1, hParams);
+	return MRES_Ignored;
+}
+
+
+
+// ====================================================================================================
+//					DETOUR - Weapons
+// ====================================================================================================
+MRESReturn GetWeaponInfo(DHookReturn hReturn, DHookParam hParams)
+{
+	WeaponInfoFunction(0, hParams);
+	return MRES_Ignored;
+}
+
+void WeaponInfoFunction(int funk, Handle hParams)
+{
+	// Load new map data
+	if( g_bLoadNewMap ) ResetPlugin();
+
+	// Pointer
+	int pThis = DHookGetParam(hParams, 1 + funk);
+
+	// Weapon name
+	char class[64];
+	DHookGetParamString(hParams, 2 - funk, class, sizeof(class));
+
+	// Set data
+	ArrayList aHand;
+	char key[MAX_STRING_LENGTH];
+	char value[MAX_STRING_LENGTH];
+	char check[MAX_STRING_LENGTH];
+
+	// Loop editor_weapons classnames
+	for( int x = 0; x < g_alWeaponsData.Length; x++ )
+	{
+		aHand = g_alWeaponsData.Get(x);
+		aHand.GetString(0, key, sizeof(key));
+
+		// Matches weapon from detour
+		if( strcmp(class, key) == 0 )
+		{
+			// Loop editor_weapons properties
+			for( int i = 1; i < aHand.Length; i += 2 )
+			{
+				aHand.GetString(i, key, sizeof(key));
+				aHand.GetString(i + 1, value, sizeof(value));
+
+				SDKCall(SDK_KV_GetString, pThis, check, sizeof(check), key, "N/A");
+
+				if( strcmp(check, value) )
+				{
+					if( strcmp(check, "N/A") == 0 )
+					{
+						SDKCall(SDK_KV_FindKey, pThis, key, true);
+
+						#if DEBUG_VALUES
+							PrintToServer(">>> WeaponInfo: Attempted to create \"%s\"", key);
+							SDKCall(SDK_KV_SetString, g_PointerMission, key, "");
+
+							SDKCall(SDK_KV_GetString, pThis, check, sizeof(check), key, "N/A");
+							PrintToServer(">>> WeaponInfo: \"%s\" contains: \"%s\"", key, check);
+						#endif
+
+
+					#if DEBUG_VALUES
+					} else {
+							PrintToServer(">>> WeaponInfo: Set \"%s/%s\" to \"%s\". Was \"%s\"", class, key, value, check);
+					#endif
+					}
+
+					SDKCall(SDK_KV_SetString, pThis, key, value);
 				}
 			}
 		}
 	}
 
-	return Plugin_Continue;
+	// Forward
+	Call_StartForward(g_hForwardOnGetWeapons);
+	Call_PushCell(pThis);
+	Call_PushString(class);
+	Call_Finish();
 }
 
 
 
 // ====================================================================================================
-//					EVENTS - reset stuff on spawn / death
+//					LOAD MELEE MANIFEST
 // ====================================================================================================
-void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast)
+void LoadManifest()
 {
-	int client = GetClientOfUserId(event.GetInt("userid"));
-	if( client )
+	if( g_bLeft4Dead2 )
 	{
-		ClearVars(client);
+		delete g_alMeleeCustoms;
+		g_alMeleeCustoms = new ArrayList(ByteCountToCells(MAX_MELEE_STRING));
 
-		DamageHook(true);
-
-		SDKUnhook(client, SDKHook_PreThink, OnThinkPre);
-		SDKUnhook(client, SDKHook_WeaponCanSwitchTo, CanSwitchTo);
-
-		ResetHooks(client);
-	}
-}
-
-void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
-{
-	int client = GetClientOfUserId(event.GetInt("userid"));
-	if( client && IsClientInGame(client) && GetClientTeam(client) == 2 )
-	{
-		ClearVars(client);
-
-		DamageHook(true);
-
-		AnimHookDisable(client, OnAnimPre);
-
-		SDKUnhook(client, SDKHook_PreThink, OnThinkPre);
-		SDKUnhook(client, SDKHook_WeaponCanSwitchTo, CanSwitchTo);
-
-		ResetHooks(client);
-	}
-}
-
-void Event_ReviveBegin(Event event, const char[] name, bool dontBroadcast)
-{
-	int client = GetClientOfUserId(event.GetInt("subject"));
-	if( client && g_bHasHeal[client] )
-	{
-		int weapon = GetPlayerWeaponSlot(client, 0);
-		if( weapon != -1 && GetEntProp(weapon, Prop_Send, "m_iClip1") > 0 )
+		File hFile = OpenFile(CONFIG_MANIFEST, "r", true);
+		if( hFile )
 		{
-			EquipPlayerWeapon(client, weapon);
-			SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", weapon);
-		}
-		else
-		{
-			weapon = GetPlayerWeaponSlot(client, 1);
-			if( weapon != -1 )
+			char sLine[256];
+			int start;
+			int last;
+
+			while( !IsEndOfFile(hFile) && ReadFileLine(hFile, sLine, sizeof(sLine)) )
 			{
-				EquipPlayerWeapon(client, weapon);
-				SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", weapon);
+				start = StrContains(sLine, "scripts/melee/", false);
+				if( start != -1 )
+				{
+					last = StrContains(sLine[start + 14], ".txt", false);
+					sLine[start + 14 + last] = 0;
+					g_alMeleeCustoms.PushString(sLine[start + 14]);
+				}
 			}
+
+			delete hFile;
 		}
 	}
 }
 
-void Event_ReviveSuccess(Event event, const char[] name, bool dontBroadcast)
-{
-	int client = GetClientOfUserId(event.GetInt("subject"));
-	if( client && GetClientTeam(client) == 2 )
-	{
-		g_hTimerRevive[client] = null; // Null here, otherwise deleting throws timer errors because the timer is closing itself at this point with return Plugin_Stop
 
-		DamageHook(true);
 
-		AnimHookDisable(client, OnAnimPre);
-
-		SDKUnhook(client, SDKHook_PreThink, OnThinkPre);
-		SDKUnhook(client, SDKHook_WeaponCanSwitchTo, CanSwitchTo);
-
-		ResetHooks(client);
-
-		// Give secondary weapon back, if primary and secondary were restricted on incap
-		if( g_sIncapType[client][0] )
-		{
-			int weapon = GetPlayerWeaponSlot(client, 1);
-			if( weapon != -1 )
-			{
-				RemovePlayerItem(client, weapon);
-				RemoveEntity(weapon);
-			}
-
-			weapon = GivePlayerItem(client, g_sIncapType[client]);
-			if( weapon != INVALID_ENT_REFERENCE )
-			{
-				EquipPlayerWeapon(client, weapon);
-				SetEntProp(weapon, Prop_Send, "m_iClip1", g_iIncapAmmo[client]);
-			}
-		}
-
-		ClearVars(client);
-	}
-}
-
-void Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
-{
-	ResetPlugin();
-
-	DamageHook(false);
-}
+// ====================================================================================================
+//					LOAD CONFIG
+// ====================================================================================================
+bool g_bAllowSection;
+int g_iSectionMission; // 0 = weapons cfg. 1 = mission cfg.
+int g_iSectionLevel;
+int g_iValueIndex;
 
 void ResetPlugin()
 {
-	for( int i = 1; i <= MaxClients; i++ )
+	if( g_bLoadNewMap )
 	{
-		ClearVars(i);
+		g_bLoadNewMap = false;
+		g_bManifest = false;
+		g_bHasMelee = false;
 
-		if( IsClientInGame(i) )
+		// Load custom melee weapons list
+		LoadManifest();
+	}
+
+	// Clear strings
+	delete g_alMissionData;
+
+	// Delete handles
+	if( g_alWeaponsData != null )
+	{
+		ArrayList aHand;
+		int size = g_alWeaponsData.Length;
+
+		for( int i = 0; i < size; i++ )
 		{
-			AnimHookDisable(i, OnAnimPre);
+			aHand = g_alWeaponsData.Get(i);
+			delete aHand;
+		}
 
-			ClearVars(i);
+		delete g_alWeaponsData;
+	}
 
-			SDKUnhook(i, SDKHook_PreThink, OnThinkPre);
-			SDKUnhook(i, SDKHook_WeaponCanSwitchTo, CanSwitchTo);
+	// Load again
+	LoadConfig();
 
-			ResetHooks(i);
+	RequestFrame(OnStart);
+}
+
+void OnStart()
+{
+	// Reparse weapon and melee configs each map
+	ServerCommand("weapon_reparse_server; %s", g_bLeft4Dead2 ? "melee_reload_info_server" : "");
+}
+
+bool TrySuffixConfig(char[] fileName, int fileLen, bool mission)
+{
+	if( mission ? g_sCvarSuffixMission[0] == 0 : g_sCvarSuffixWeapons[0] == 0 )
+		return false;
+
+	int pos = StrContains(fileName, ".cfg");
+
+	fileName[pos] = 0;
+	Format(fileName, fileLen, "%s.%s.cfg", fileName, mission ? g_sCvarSuffixMission : g_sCvarSuffixWeapons);
+
+	return FileExists(fileName);
+}
+
+bool TryModeDiffConfig(char[] fileName, int fileLen)
+{
+	int pos = StrContains(fileName, ".cfg");
+
+	if( pos == -1 )
+		return false;
+
+	fileName[pos] = 0;
+	Format(fileName, fileLen, "%s.%s.%s.cfg", fileName, g_sGameMode, g_sDifficulty);
+
+	return FileExists(fileName);
+}
+
+bool TryModeConfig(char[] fileName, int fileLen)
+{
+	int pos = StrContains(fileName, ".cfg");
+
+	if( pos == -1 )
+		return false;
+
+	fileName[pos] = 0;
+	Format(fileName, fileLen, "%s.%s.cfg", fileName, g_sGameMode);
+
+	return FileExists(fileName);
+}
+
+void LoadConfig()
+{
+	bool passed;
+	g_alMissionData = new ArrayList(ByteCountToCells(MAX_STRING_LENGTH));
+	g_alWeaponsData = new ArrayList();
+
+
+
+	// ==========
+	// Mission config
+	// ==========
+	g_iSectionMission = 1;
+
+	// Optional cvar config suffix: "l4d_info_editor_mission.<suffix>.cfg"
+	BuildPath(Path_SM, g_sConfigMission, sizeof(g_sConfigMission), CONFIG_MISSION);
+
+	if( TrySuffixConfig(g_sConfigMission, sizeof(g_sConfigMission), true) )
+	{
+		g_bGameMode = false;
+		ParseConfigFile(g_sConfigMission);
+
+		g_bGameMode = true;
+		ParseConfigFile(g_sConfigMission);
+
+		g_bGameMode = false;
+		passed = true;
+	}
+
+	// Optional gamemode + difficulty config: "l4d_info_editor_mission.<gamemode>.<difficulty>.cfg"
+	if( !passed )
+	{
+		BuildPath(Path_SM, g_sConfigMission, sizeof(g_sConfigMission), CONFIG_MISSION);
+
+		if( TryModeDiffConfig(g_sConfigMission, sizeof(g_sConfigMission)) )
+		{
+			g_bGameMode = false;
+			ParseConfigFile(g_sConfigMission);
+
+			g_bGameMode = true;
+			ParseConfigFile(g_sConfigMission);
+
+			g_bGameMode = false;
+			passed = true;
+		}
+	}
+
+	// Optional gamemode config: "l4d_info_editor_mission.<gamemode>.cfg"
+	if( !passed )
+	{
+		BuildPath(Path_SM, g_sConfigMission, sizeof(g_sConfigMission), CONFIG_MISSION);
+
+		if( TryModeConfig(g_sConfigMission, sizeof(g_sConfigMission)) )
+		{
+			g_bGameMode = false;
+			ParseConfigFile(g_sConfigMission);
+
+			g_bGameMode = true;
+			ParseConfigFile(g_sConfigMission);
+
+			g_bGameMode = false;
+			passed = true;
+		}
+	}
+
+	// Standard config + config gamemode sections: "l4d_info_editor_mission.cfg"
+	if( !passed )
+	{
+		BuildPath(Path_SM, g_sConfigMission, sizeof(g_sConfigMission), CONFIG_MISSION);
+
+		// Load normal config
+		if( FileExists(g_sConfigMission) )
+		{
+			g_bGameMode = false;
+			ParseConfigFile(g_sConfigMission);
+
+			g_bGameMode = true;
+			ParseConfigFile(g_sConfigMission);
+
+			g_bGameMode = false;
+		}
+	}
+
+
+
+	// ==========
+	// Weapons config
+	// ==========
+	passed = false;
+	g_iSectionMission = 0;
+
+	// Optional cvar suffix config: "l4d_info_editor_weapons.<suffix>.cfg"
+	BuildPath(Path_SM, g_sConfigWeapons, sizeof(g_sConfigWeapons), CONFIG_WEAPONS);
+
+	if( TrySuffixConfig(g_sConfigWeapons, sizeof(g_sConfigWeapons), false) )
+	{
+		g_bGameMode = false;
+		ParseConfigFile(g_sConfigWeapons);
+
+		g_bGameMode = true;
+		ParseConfigFile(g_sConfigWeapons);
+
+		g_bGameMode = false;
+		passed = true;
+	}
+
+	// Optional gamemode + difficulty config: "l4d_info_editor_weapons.<gamemode>.<difficulty>.cfg"
+	if( !passed )
+	{
+		BuildPath(Path_SM, g_sConfigWeapons, sizeof(g_sConfigWeapons), CONFIG_WEAPONS);
+
+		if( TryModeDiffConfig(g_sConfigWeapons, sizeof(g_sConfigWeapons)) )
+		{
+			g_bGameMode = false;
+			ParseConfigFile(g_sConfigWeapons);
+
+			g_bGameMode = true;
+			ParseConfigFile(g_sConfigWeapons);
+
+			g_bGameMode = false;
+			passed = true;
+		}
+	}
+
+	// Optional gamemode config: "l4d_info_editor_weapons.<gamemode>.cfg"
+	if( !passed )
+	{
+		BuildPath(Path_SM, g_sConfigWeapons, sizeof(g_sConfigWeapons), CONFIG_WEAPONS);
+
+		if( TryModeConfig(g_sConfigWeapons, sizeof(g_sConfigWeapons)) )
+		{
+			g_bGameMode = false;
+			ParseConfigFile(g_sConfigWeapons);
+
+			g_bGameMode = true;
+			ParseConfigFile(g_sConfigWeapons);
+
+			g_bGameMode = false;
+			passed = true;
+		}
+	}
+
+	// Standard config + config gamemode sections: "l4d_info_editor_weapons.cfg"
+	if( !passed )
+	{
+		BuildPath(Path_SM, g_sConfigWeapons, sizeof(g_sConfigWeapons), CONFIG_WEAPONS);
+
+		// Load normal config
+		if( FileExists(g_sConfigWeapons) )
+		{
+			g_bGameMode = false;
+			ParseConfigFile(g_sConfigWeapons);
+
+			g_bGameMode = true;
+			ParseConfigFile(g_sConfigWeapons);
+
+			g_bGameMode = false;
 		}
 	}
 }
 
-void ResetHooks(int client)
+void ParseConfigFile(const char[] file)
 {
-	SDKUnhook(client, SDKHook_OnTakeDamageAlive, OnTakeReviveDamage);
-	SDKUnhook(client, SDKHook_OnTakeDamageAlivePost, OnTakeReviveDamagePost);
+	// Load parser and set hook functions
+	SMCParser parser = new SMCParser();
+	SMC_SetReaders(parser, Config_NewSection, Config_KeyValue, Config_EndSection);
+	parser.OnEnd = Config_End;
+
+	// Log errors detected in config
+	char error[128];
+	int line, col;
+	SMCError result = parser.ParseFile(file, line, col);
+
+	if( result != SMCError_Okay )
+	{
+		if( parser.GetErrorString(result, error, sizeof(error)) )
+		{
+			SetFailState("%s on line %d, col %d of %s [%d]", error, line, col, file, result);
+		}
+		else
+		{
+			SetFailState("Unable to load config. Bad format? Check for missing { } etc.");
+		}
+	}
+
+	delete parser;
+	// return (result == SMCError_Okay);
 }
 
-
-
-// ====================================================================================================
-//					DAMAGE HOOKS
-// ====================================================================================================
-// Hook players OnTakeDamage if someone is incapped - to block melee weapon damage to survivors, or modify weapon damage inflicted on Survivors
-void DamageHook(bool enable)
+SMCResult Config_NewSection(Handle parser, const char[] section, bool quotes)
 {
-	// Only enable under these conditions
-	if( g_fCvarFriendly == 1.0 && (!g_bLeft4Dead2 || g_iCvarPist != 0 || g_iCvarMelee != 0) ) return;
+	g_iSectionLevel++;
 
-	bool incapped;
-
-	// Check someone is incapped
-	if( enable )
+	if( g_iSectionLevel == 2 )
 	{
-		for( int i = 1; i <= MaxClients; i++ )
+		g_bAllowSection = false;
+
+		if( !g_bGameMode && strcmp(section, "all") == 0 )
 		{
-			if( IsClientInGame(i) && GetClientTeam(i) == 2 && IsPlayerAlive(i) && GetEntProp(i, Prop_Send, "m_isIncapacitated", 1) && GetEntProp(i, Prop_Send, "m_isHangingFromLedge", 1) == 0 )
+			g_bAllowSection = true;
+		} else {
+			if( g_bGameMode && strcmp(section, g_sGameMode) == 0 )
 			{
-				incapped = true;
+				g_bAllowSection = true;
+			}
+			else
+			{
+				char sMap[PLATFORM_MAX_PATH];
+				GetCurrentMap(sMap, sizeof(sMap));
+
+				if( StrContains(section, ",") != -1 )
+				{
+					int index, last;
+					int len = strlen(section) + 2;
+					char[] newSection = new char [len];
+					StrCat(newSection, len, section);
+					StrCat(newSection, len, ",");
+
+					while( (index = StrContains(newSection[last], ",")) != -1 )
+					{
+						newSection[last + index] = 0;
+						if( StrContains(sMap, newSection[last], false) != -1 )
+						{
+							g_bAllowSection = true;
+							break;
+						}
+						newSection[last + index] = ',';
+						last += index + 1;
+					}
+				}
+				else if( StrContains(sMap, section, false) != -1 )
+				{
+					g_bAllowSection = true;
+				}
+			}
+		}
+	}
+
+	if( g_bAllowSection && g_iSectionMission == 0 && g_iSectionLevel == 3 )
+	{
+		int lens = g_alWeaponsData.Length;
+
+		bool pushData = true;
+		ArrayList aHand;
+		char value[64];
+
+		g_iValueIndex = 1;
+
+		// Loop through sections
+		for( int x = 0; x < lens; x++ )
+		{
+			aHand = g_alWeaponsData.Get(x);
+			aHand.GetString(0, value, sizeof(value));
+
+			// Already exists
+			if( strcmp(value, section) == 0 )
+			{
+				pushData = false;
 				break;
 			}
+
+			g_iValueIndex++;
+		}
+
+		// Doesn't exist, push into weapons array
+		if( pushData )
+		{
+			aHand = new ArrayList(ByteCountToCells(MAX_STRING_LENGTH));
+			aHand.PushString(section);
+			g_alWeaponsData.Push(aHand);
 		}
 	}
 
-	// Unhook and enable if required and someone incapped
-	for( int i = 1; i <= MaxClients; i++ )
-	{
-		if( IsClientInGame(i) )
-		{
-			SDKUnhook(i, SDKHook_OnTakeDamageAlive, OnTakeDamage);
+	return SMCParse_Continue;
+}
 
-			if( enable && incapped && GetClientTeam(i) == 2 && IsPlayerAlive(i) )
+SMCResult Config_KeyValue(Handle parser, const char[] key, const char[] value, bool key_quotes, bool value_quotes)
+{
+	// 2 = Mission
+	// 3 = Weapons
+	if( g_bAllowSection )
+	{
+		if( (g_iSectionMission && g_iSectionLevel == 2) || g_iSectionLevel == 3 )
+		{
+			ArrayList aHand;
+
+			// Mission Data
+			if( g_iSectionMission )
 			{
-				SDKHook(i, SDKHook_OnTakeDamageAlive, OnTakeDamage);
-			}
-		}
-	}
-}
+				aHand = g_alMissionData;
 
-Action OnTakeDamage(int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon, float damageForce[3], float damagePosition[3])
-{
-	if( victim > 0 && victim <= MaxClients && attacker > 0 && attacker <= MaxClients && GetClientTeam(victim) == 2 && GetClientTeam(attacker) == 2 && GetEntProp(attacker, Prop_Send, "m_isIncapacitated", 1) && GetEntProp(attacker, Prop_Send, "m_isHangingFromLedge", 1) == 0 )
-	{
-		if( g_bLeft4Dead2 && g_iCvarPist == 0 && g_iCvarMelee == 0 && inflictor > MaxClients && IsValidEntity(inflictor) )
-		{
-			static char classname[16];
-			GetEdictClassname(inflictor, classname, sizeof(classname));
-
-			if( strcmp(classname[7], "melee") == 0 )
-			{
-				damage = 0.0;
-				return Plugin_Changed;
-			}
-		}
-
-		if( g_fCvarFriendly != 1.0 )
-		{
-			damage *= g_fCvarFriendly;
-			return Plugin_Changed;
-		}
-	}
-
-	return Plugin_Continue;
-}
-
-
-
-// ====================================================================================================
-//					RESTRICT WEAPONS
-// ====================================================================================================
-// Restrict certain weapons
-Action CanSwitchTo(int client, int weapon)
-{
-	// This causes the animation to sometimes partially skip on L4D1 and doesn't seem to have any effect on L4D2, so removing.
-	// if( g_hTimerUseHealth[client] ) return Plugin_Handled; // Block while using Pills/Adrenaline
-
-
-	// If reviving self with animation, block weapon shooting
-	if( g_iCvarRevive && GetEntPropEnt(client, Prop_Send, "m_reviveOwner") == client )
-	{
-		// Block shooting
-		RequestFrame(OnFrameAttack, GetClientUserId(client));
-	}
-
-	g_bHasHeal[client] = false;
-
-	static char classname[32];
-	GetEdictClassname(weapon, classname, sizeof(classname));
-
-	int index;
-	g_aWeaponIDs.GetValue(classname, index);
-
-	if( index == 0 || g_aRestrict.FindValue(index) != -1 )
-		return Plugin_Handled;
-
-	if( g_bLeft4Dead2 )
-	{
-		if( index == 15 || index == 23 ) // Pills / Adren
-			g_bHasHeal[client] = true;
-		else
-			g_bHasHeal[client] = false;
-	}
-	else
-	{
-		g_bHasHeal[client] = index == 12; // Pills
-	}
-
-	if( g_bHasHeal[client] && GetEntPropEnt(client, Prop_Send, "m_reviveOwner") != -1 )
-	{
-		g_bHasHeal[client] = false;
-		return Plugin_Handled;
-	}
-
-	return Plugin_Continue;
-}
-
-void OnFrameAttack(int client)
-{
-	client = GetClientOfUserId(client);
-	if( client && IsClientInGame(client) )
-	{
-		int weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
-		if( weapon != -1 )
-		{
-			SetEntPropFloat(weapon, Prop_Send, "m_flNextPrimaryAttack", GetGameTime() + 10.0);
-		}
-	}
-}
-
-
-
-// ====================================================================================================
-//					THINK (L4D1) - can use pills/adrenaline
-// ====================================================================================================
-void OnThinkPre(int client)
-{
-	if( g_bHasHeal[client] ) // Only set in L4D1
-	{
-		if( GetClientButtons(client) & IN_ATTACK )
-		{
-			g_bHasHeal[client] = false;
-			HealSetup(client, true);
-		}
-	}
-}
-
-
-
-// ====================================================================================================
-//					ANIMATION HOOK - taking pills/adrenaline
-// ====================================================================================================
-// Uses "Activity" numbers, which means 1 animation number is the same for all Survivors.
-// Detect pills/adrenaline use to heal players and detect grenade throwing
-Action OnAnimPre(int client, int &anim)
-{
-	if( g_bLeft4Dead2 )
-	{
-		switch( anim )
-		{
-			case L4D2_ACT_TERROR_USE_PILLS:
-			{
-				if( g_iCvarHealPills && g_bHasHeal[client] )
+				// Remove duplicates (map specific overriding 'all' section)
+				int index = aHand.FindString(key);
+				if( index != -1 )
 				{
-					HealSetup(client, true);
+					aHand.Erase(index);
+					aHand.Erase(index);
 				}
-			}
 
-			case L4D2_ACT_TERROR_USE_ADRENALINE:
-			{
-				if( g_iCvarHealAdren && g_bHasHeal[client] )
-				{
-					HealSetup(client, false);
-				}
-			}
+				aHand.PushString(key);
+				aHand.PushString(value);
 
-			case L4D2_ACT_PRIMARYATTACK_GREN1_IDLE, L4D2_ACT_PRIMARYATTACK_GREN2_IDLE:
-			{
-				if( !g_bCvarThrow )
+			// Weapon Data
+			} else {
+				aHand = g_alWeaponsData.Get(g_iValueIndex - 1);
+
+				int index = aHand.FindString(key);
+				if( index == -1 )
 				{
-					anim = L4D2_ACT_IDLE_INCAP_PISTOL;
-					return Plugin_Changed;
+					aHand.PushString(key);
+					aHand.PushString(value);
+				} else {
+					aHand.SetString(index + 1, value);
 				}
 			}
 		}
 	}
-	else
-	{
-		if( g_bHasHeal[client] )
-		{
-			switch( anim )
-			{
-				/* Does not trigger in L4D1
-				case ACT_TERROR_USE_PILLS
-				{
-					if( g_iCvarHealPills )
-					{
-						HealSetup(client, true);
-					}
-				}
-				// */
-
-				case L4D1_ACT_PRIMARYATTACK_GREN1_IDLE, L4D1_ACT_PRIMARYATTACK_GREN2_IDLE:
-				{
-					if( !g_bCvarThrow )
-					{
-						anim = L4D1_ACT_IDLE_INCAP_PISTOL;
-						return Plugin_Changed;
-					}
-				}
-			}
-		}
-	}
-
-	return Plugin_Continue;
+	return SMCParse_Continue;
 }
 
-
-
-// ====================================================================================================
-//					HEAL and REVIVE
-// ====================================================================================================
-// Heal player with pills/adrenaline (triggered when player uses pills/adrenaline)
-void HealSetup(int client, bool pills)
+SMCResult Config_EndSection(Handle parser)
 {
-	if( GetEntPropEnt(client, Prop_Send, "m_reviveOwner") != -1 ) return;
-
-	// Timeout to prevent spamming and fast animation
-	int weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
-	if( weapon != -1 )
-	{
-		SetEntPropFloat(weapon, Prop_Send, "m_flNextPrimaryAttack", GetGameTime() + (pills ? HEAL_ANIM_PILLS : HEAL_ANIM_ADREN) + 0.2);
-
-		// Heal when animation is complete and delete weapon
-		DataPack dPack = new DataPack();
-
-		delete g_hTimerUseHealth[client];
-
-		g_hTimerUseHealth[client] = CreateTimer(pills ? HEAL_ANIM_PILLS : HEAL_ANIM_ADREN, TimerUsed, dPack);
-
-		dPack.WriteCell(GetClientUserId(client));
-		dPack.WriteCell(EntIndexToEntRef(weapon));
-
-		g_bIsPills[client] = pills;
-	}
+	g_iSectionLevel--;
+	return SMCParse_Continue;
 }
 
-Action TimerUsed(Handle timer, DataPack dPack)
+void Config_End(Handle parser, bool halted, bool failed)
 {
-	HealPlayer(dPack);
-	return Plugin_Continue;
-}
-
-void HealPlayer(DataPack dPack)
-{
-	dPack.Reset();
-
-	int userid = dPack.ReadCell();
-	int weapon = dPack.ReadCell();
-
-	delete dPack;
-
-	// Validate client
-	int client = GetClientOfUserId(userid);
-
-	g_hTimerUseHealth[client] = null;
-
-	if( GetEntPropEnt(client, Prop_Send, "m_reviveOwner") != -1 ) return;
-
-	if( client && IsClientInGame(client) && IsPlayerAlive(client) && GetEntProp(client, Prop_Send, "m_isIncapacitated", 1) )
-	{
-		// Delete pills/adrenaline
-		if( EntRefToEntIndex(weapon) != INVALID_ENT_REFERENCE )
-		{
-			RemovePlayerItem(client, weapon);
-			RemoveEntity(weapon);
-		}
-
-		// Healing type
-		bool pills = g_bIsPills[client];
-		if( (pills ? g_iCvarHealPills : g_iCvarHealAdren) == -1 )
-		{
-			// Revive player with animation
-			// 1=On and damage can stop reviving. 2=Damage will interrupt animation and restart reviving. 3=Damage does not interrupt reviving. 4=Give god mode when reviving
-			if( g_iCvarRevive )
-			{
-				if( g_bLeft4Dead2 && GetEntPropFloat(client, Prop_Send, "m_TimeForceExternalView") != 99999.3 ) // Thirdperson plugin, always stay on 3rd
-					SetEntPropFloat(client, Prop_Send, "m_TimeForceExternalView", GetGameTime() + 5.0);
-
-				// Player revive animation
-				SetEntPropEnt(client, Prop_Send, "m_reviveOwner", client);
-
-				// Block damage interrupting revive, etc
-				ResetHooks(client);
-
-				SDKHook(client, SDKHook_OnTakeDamageAlive, OnTakeReviveDamage);
-
-				if( g_iCvarRevive == 3 )
-					SDKHook(client, SDKHook_OnTakeDamageAlivePost, OnTakeReviveDamagePost);
-
-				// Wait for revive animation to complete
-				delete g_hTimerRevive[client];
-				g_hTimerRevive[client] = CreateTimer(TIMER_ANIM, TimerAnim, GetClientUserId(client));
-			}
-			else
-			{
-				// Revive player without delay
-				if( g_fCvarDelayPills == 0.0 )
-				{
-					RevivePlayer(client, pills);
-				}
-				else
-				{
-					// Revive with delay
-					if( g_fReviveTimer[client] == 0.0 )
-					{
-						g_iHint[client] = 0;
-						g_fReviveTimer[client] = pills ? g_fCvarDelayPills : g_fCvarDelayAdren;
-
-						delete g_hTimerRevive[client];
-						g_hTimerRevive[client] = CreateTimer(TIMER_REVIVE, TimerRevive, userid, TIMER_REPEAT);
-					}
-				}
-			}
-		}
-		else
-		{
-			// Heal player
-			int health = GetClientHealth(client);
-			health += (pills ? g_iCvarHealPills : g_iCvarHealAdren);
-			if( health > g_iCvarIncapHealth ) health = g_iCvarIncapHealth;
-			SetEntityHealth(client, health);
-		}
-
-		// Fire event
-		if( g_bLeft4Dead2 && pills == false )
-		{
-			// This fires the event and creates the Adrenaline effects
-			L4D2_UseAdrenaline(client, 15.0, false);
-		}
-		else
-		{
-			Event hEvent = CreateEvent("pills_used");
-			hEvent.SetInt("userid", userid);
-			hEvent.Fire();
-		}
-	}
-}
-
-public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3], float angles[3], int &weapon)
-{
-	if( g_iCvarRevive == 2 && g_hTimerRevive[client] && buttons & (IN_FORWARD|IN_MOVELEFT|IN_MOVERIGHT|IN_BACK) )
-	{
-		if( GetEntPropEnt(client, Prop_Send, "m_reviveOwner") == client )
-		{
-			weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
-			if( weapon != -1 )
-			{
-				SetEntPropFloat(weapon, Prop_Send, "m_flNextPrimaryAttack", GetGameTime() + 0.5);
-				SetEntPropEnt(client, Prop_Send, "m_reviveOwner", -1);
-				delete g_hTimerRevive[client];
-				ResetHooks(client);
-			}
-		}
-	}
-
-	return Plugin_Continue;
-}
-
-
-
-// ====================================================================================================
-// Revive with delay:
-// ====================================================================================================
-Action TimerRevive(Handle timer, int userid)
-{
-	int client = GetClientOfUserId(userid);
-	if( client && IsClientInGame(client) && GetEntPropEnt(client, Prop_Send, "m_reviveOwner") == client )
-	{
-		g_fReviveTimer[client] -= TIMER_REVIVE;
-
-		// Hint
-		if( g_iCvarDelayText )
-		{
-			int secs = RoundToCeil(g_fReviveTimer[client]);
-			if( secs != g_iHint[client] )
-			{
-				g_iHint[client] = secs;
-
-				if( secs )
-				{
-					if( g_bTranslations )
-					{
-						switch( g_iCvarDelayText )
-						{
-							case 2: CPrintHintText(client, "%T", "Revive_Wait", client, secs);
-							default: CPrintToChat(client, "%T", "Revive_Wait", client, secs);
-						}
-					}
-					else
-					{
-						switch( g_iCvarDelayText )
-						{
-							case 2: PrintHintText(client, "Reviving in %d", secs);
-							default: PrintToChat(client, "\x05Reviving \x01in \x04%d", secs);
-						}
-					}
-				}
-				else
-				{
-					if( g_bTranslations )
-					{
-						switch( g_iCvarDelayText )
-						{
-							case 2: CPrintHintText(client, "%T", "Revive_Done", client, secs);
-							default: CPrintToChat(client, "%T", "Revive_Done", client, secs);
-						}
-					}
-					else
-					{
-						switch( g_iCvarDelayText )
-						{
-							case 2: PrintHintText(client, "Revived!", secs);
-							default: PrintToChat(client, "\x05\x05Revived!", secs);
-						}
-					}
-				}
-			}
-		}
-
-		// Revive
-		if( g_fReviveTimer[client] <= 0.0 )
-		{
-			g_fReviveTimer[client] = 0.0;
-
-			SetEntPropEnt(client, Prop_Send, "m_reviveOwner", -1);
-
-			RevivePlayer(client, g_bIsPills[client]);
-		}
-		else
-		{
-			return Plugin_Continue;
-		}
-	}
-
-	g_hTimerRevive[client] = null;
-	return Plugin_Stop;
-}
-
-
-
-// ====================================================================================================
-// Revive with animation:
-// ====================================================================================================
-Action TimerAnim(Handle timer, int client)
-{
-	client = GetClientOfUserId(client);
-	if( client && IsClientInGame(client) )
-	{
-		SetEntPropEnt(client, Prop_Send, "m_reviveOwner", -1);
-
-		RevivePlayer(client, g_bIsPills[client]);
-	}
-
-	g_hTimerRevive[client] = null;
-	return Plugin_Stop;
-}
-
-Action OnTakeReviveDamage(int client, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon, float damageForce[3], float damagePosition[3])
-{
-	switch( g_iCvarRevive )
-	{
-		// Revive interrupts
-		case 1:
-		{
-			ResetHooks(client);
-			delete g_hTimerRevive[client];
-
-			// PrintToChatAll("Revive interrupted");
-		}
-
-		// Revive resets anim
-		case 2:
-		{
-			if( g_bLeft4Dead2 && GetEntPropFloat(client, Prop_Send, "m_TimeForceExternalView") != 99999.3 ) // Thirdperson plugin, always stay on 3rd
-				SetEntPropFloat(client, Prop_Send, "m_TimeForceExternalView", GetGameTime() + TIMER_ANIM); // 5.0 revive anim + 1.2 falling anim
-
-			// Player revive animation
-			SetEntPropEnt(client, Prop_Send, "m_reviveOwner", client);
-
-			// Wait for revive animation to complete
-			delete g_hTimerRevive[client];
-			g_hTimerRevive[client] = CreateTimer(TIMER_ANIM, TimerAnim, GetClientUserId(client));
-
-			// PrintToChatAll("Revive reset");
-		}
-
-		// Block interrupt
-		case 3:
-		{
-			SetEntProp(client, Prop_Send, "m_isHangingFromLedge", 1, 1);
-
-			// PrintToChatAll("Revive block interrupt");
-		}
-
-		// God mode
-		case 4:
-		{
-			// PrintToChatAll("Revive godmode");
-			return Plugin_Handled;
-		}
-	}
-
-	return Plugin_Continue;
-}
-
-Action OnTakeReviveDamagePost(int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon, float damageForce[3], float damagePosition[3])
-{
-	SetEntProp(victim, Prop_Send, "m_isHangingFromLedge", 0, 1);
-
-	return Plugin_Continue;
-}
-
-
-
-// ====================================================================================================
-// Revive player:
-// ====================================================================================================
-void RevivePlayer(int client, bool pills)
-{
-	L4D_ReviveSurvivor(client);
-
-	// Revive black and white
-	int test = pills ? 0 : 1;
-
-	if( g_iCvarHealRevive & (1 << test) )
-	{
-		if( g_bHeartbeat )
-		{
-			Heartbeat_SetRevives(client, g_iCvarMaxIncap);
-			if( g_bLeft4Dead2 )
-			{
-				SetEntProp(client, Prop_Send, "m_currentReviveCount", g_iCvarMaxIncap);
-			}
-		}
-		else
-		{
-			if( g_bLeft4Dead2 )
-				SetEntProp(client, Prop_Send, "m_bIsOnThirdStrike", 1);
-
-			SetEntProp(client, Prop_Send, "m_currentReviveCount", g_iCvarMaxIncap);
-			SetEntProp(client, Prop_Send, "m_isGoingToDie", 1);
-		}
-	}
-
-	if( g_iCvarReviveHealth )
-	{
-		SetEntityHealth(client, g_iCvarReviveHealth);
-	}
-
-	if( g_iCvarReviveTemp )
-	{
-		SetEntPropFloat(client, Prop_Send, "m_healthBuffer", float(g_iCvarReviveTemp));
-		SetEntPropFloat(client, Prop_Send, "m_healthBufferTime", GetGameTime());
-	}
-}
-
-
-
-// ====================================================================================================
-//					PIPEBOMB EFFECTS
-// ====================================================================================================
-public void OnEntityCreated(int entity, const char[] classname)
-{
-	if( g_bCvarAllow && !g_bGrenadeFix && strcmp(classname, "pipe_bomb_projectile") == 0 )
-	{
-		RequestFrame(OnFrameSpawn, EntIndexToEntRef(entity));
-	}
-}
-
-void OnFrameSpawn(int entity)
-{
-	if( EntRefToEntIndex(entity) != INVALID_ENT_REFERENCE )
-	{
-		int client = GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity");
-		if( client > 0 && client <= MaxClients && GetEntProp(client, Prop_Send, "m_isIncapacitated", 1) == 1 )
-		{
-			CreateParticle(entity, 0);
-			CreateParticle(entity, 1);
-		}
-	}
-}
-
-void CreateParticle(int target, int type)
-{
-	int entity = CreateEntityByName("info_particle_system");
-	if( type == 0 )	DispatchKeyValue(entity, "effect_name", PARTICLE_FUSE);
-	else			DispatchKeyValue(entity, "effect_name", PARTICLE_LIGHT);
-
-	DispatchSpawn(entity);
-	ActivateEntity(entity);
-	AcceptEntityInput(entity, "Start");
-
-	SetVariantString("!activator");
-	AcceptEntityInput(entity, "SetParent", target);
-
-	if( type == 0 )	SetVariantString("fuse");
-	else			SetVariantString("pipebomb_light");
-	AcceptEntityInput(entity, "SetParentAttachment", target);
-}
-
-void PrecacheParticle(const char[] sEffectName)
-{
-	static int table = INVALID_STRING_TABLE;
-	if( table == INVALID_STRING_TABLE )
-	{
-		table = FindStringTable("ParticleEffectNames");
-	}
-
-	if( FindStringIndex(table, sEffectName) == INVALID_STRING_INDEX )
-	{
-		bool save = LockStringTables(false);
-		AddToStringTable(table, sEffectName);
-		LockStringTables(save);
-	}
-}
-
-
-
-// ====================================================================================================
-//					DETOUR
-// ====================================================================================================
-void DetourAdd()
-{
-	if( g_bLeft4Dead2 )
-	{
-		if( !g_hDetourFireBullet.Enable(Hook_Pre, CTerrorGun_FireBullet_Pre) )
-			SetFailState("Failed to detour \"CTerrorGun::FireBullet\" pre.");
-
-		if( !g_hDetourFireBullet.Enable(Hook_Post, CTerrorGun_FireBullet_Post) )
-			SetFailState("Failed to detour \"CTerrorGun::FireBullet\" post.");
-
-		if( !g_hDetourCanUseOnSelf.Enable(Hook_Pre, CPainPills_CanUseOnSelf) )
-			SetFailState("Failed to detour \"CPainPills::CanUseOnSelf\".");
-	}
-	else
-	{
-		if( !g_hDetourCanUseOnSelf.Enable(Hook_Pre, CPainPills_PrimaryAttack) )
-			SetFailState("Failed to detour \"CPainPills::PrimaryAttack\".");
-	}
-}
-
-void DetourRem()
-{
-	if( g_bLeft4Dead2 )
-	{
-		if( !g_hDetourFireBullet.Disable(Hook_Pre, CTerrorGun_FireBullet_Pre) )
-			SetFailState("Failed to detour \"CTerrorGun::FireBullet\" pre.");
-
-		if( !g_hDetourFireBullet.Disable(Hook_Post, CTerrorGun_FireBullet_Post) )
-			SetFailState("Failed to detour \"CTerrorGun::FireBullet\" post.");
-
-		if( !g_hDetourCanUseOnSelf.Disable(Hook_Pre, CPainPills_CanUseOnSelf) )
-			SetFailState("Failed to remove detour \"CPainPills::CanUseOnSelf\".");
-	}
-	else
-	{
-		if( !g_hDetourCanUseOnSelf.Disable(Hook_Pre, CPainPills_PrimaryAttack) )
-			SetFailState("Failed to remove detour \"CPainPills::PrimaryAttack\".");
-	}
-}
-
-int g_iReviveOwner, g_iBulletClient;
-MRESReturn CTerrorGun_FireBullet_Pre(int pThis)
-{
-	g_iReviveOwner = -1;
-
-	if( pThis > MaxClients && IsValidEntity(pThis) )
-	{
-		int client = GetEntPropEnt(pThis, Prop_Send, "m_hOwnerEntity");
-		if( client > 0 && client <= MaxClients )
-		{
-			int target = GetEntPropEnt(client, Prop_Send, "m_reviveOwner");
-
-			if( target == client )
-			{
-				int weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
-				if( weapon != -1 )
-				{
-					SetEntPropFloat(weapon, Prop_Send, "m_flNextPrimaryAttack", GetGameTime() + 10.0);
-				}
-			}
-			else if( target != -1 )
-			{
-				g_iReviveOwner = target;
-				g_iBulletClient = client;
-				SetEntPropEnt(client, Prop_Send, "m_reviveOwner", -1);
-			}
-		}
-	}
-
-	return MRES_Ignored;
-}
-
-MRESReturn CTerrorGun_FireBullet_Post(int pThis)
-{
-	if( g_iReviveOwner != -1 )
-	{
-		SetEntPropEnt(g_iBulletClient, Prop_Send, "m_reviveOwner", g_iReviveOwner);
-	}
-
-	return MRES_Ignored;
-}
-
-MRESReturn CPainPills_CanUseOnSelf(int pThis, DHookReturn hReturn, DHookParam hParams)
-{
-	int client;
-	if( !hParams.IsNull(1) )
-		client = hParams.Get(1);
-
-	if( client && g_bHasHeal[client] && GetEntProp(client, Prop_Send, "m_isIncapacitated", 1) )
-	{
-		hReturn.Value = 1;
-		return MRES_Supercede;
-	}
-
-	return MRES_Ignored;
-}
-
-MRESReturn CPainPills_PrimaryAttack(int pThis, DHookReturn hReturn, DHookParam hParams)
-{
-	int client = GetEntPropEnt(pThis, Prop_Send, "m_hOwnerEntity");
-
-	if( client != -1 && g_bHasHeal[client] && GetEntProp(client, Prop_Send, "m_isIncapacitated", 1) )
-	{
-		hReturn.Value = 1;
-		return MRES_Supercede;
-	}
-
-	return MRES_Ignored;
-}
-
-
-
-// ====================================================================================================
-//					PATCHES
-// ====================================================================================================
-void PatchAddress(bool patch)
-{
-	static bool patched;
-
-	if( !patched && patch )
-	{
-		patched = true;
-
-		int len = g_ByteSaved_Deploy.Length;
-		for( int i = 0; i < len; i++ )
-		{
-			if( len == 1 )
-				// StoreToAddress(g_Address_Deploy + view_as<Address>(i), 0x78, NumberType_Int8); // 0x75 JNZ (jump short if non zero) to 0x78 JS (jump short if sign) - always jump
-				StoreToAddress(g_Address_Deploy + view_as<Address>(i), 0x88, NumberType_Int8); // 0x0F 0x85 JNZ (Jump near if not zero/not equal) to 0x88 JS (Jump near if sign) - never jump
-			else
-				StoreToAddress(g_Address_Deploy + view_as<Address>(i), 0x90, NumberType_Int8);
-		}
-	}
-	else if( patched && !patch )
-	{
-		patched = false;
-
-		int len = g_ByteSaved_Deploy.Length;
-		for( int i = 0; i < len; i++ )
-		{
-			StoreToAddress(g_Address_Deploy + view_as<Address>(i), g_ByteSaved_Deploy.Get(i), NumberType_Int8);
-		}
-	}
-}
-
-void PatchBullet(bool patch)
-{
-	if( !g_bLeft4Dead2 ) return; // L4D1 already allows incapped Survivors to damage other Survivors
-
-	static bool patched;
-
-	if( !patched && patch )
-	{
-		patched = true;
-
-		int len = g_ByteSaved_FireBullet.Length;
-		for( int i = 0; i < len; i++ )
-		{
-			if( len == 1 )
-				StoreToAddress(g_Address_FireBullet + view_as<Address>(i), 0x75, NumberType_Int8);
-			else
-				StoreToAddress(g_Address_FireBullet + view_as<Address>(i), 0x90, NumberType_Int8);
-		}
-	}
-	else if( patched && !patch )
-	{
-		patched = false;
-
-		int len = g_ByteSaved_FireBullet.Length;
-		for( int i = 0; i < len; i++ )
-		{
-			StoreToAddress(g_Address_FireBullet + view_as<Address>(i), g_ByteSaved_FireBullet.Get(i), NumberType_Int8);
-		}
-	}
-}
-
-void PatchMelee(bool patch)
-{
-	if( !g_bLeft4Dead2 ) return;
-
-	static bool patched;
-
-	if( !patched && patch )
-	{
-		patched = true;
-
-		int len = g_ByteSaved_OnIncap.Length;
-		for( int i = 0; i < len; i++ )
-		{
-			StoreToAddress(g_Address_OnIncap + view_as<Address>(i), 0x90, NumberType_Int8);
-		}
-	}
-	else if( patched && !patch )
-	{
-		patched = false;
-
-		int len = g_ByteSaved_OnIncap.Length;
-		for( int i = 0; i < len; i++ )
-		{
-			StoreToAddress(g_Address_OnIncap + view_as<Address>(i), g_ByteSaved_OnIncap.Get(i), NumberType_Int8);
-		}
-	}
-}
-
-
-
-// ====================================================================================================
-//					COLORS.INC REPLACEMENT
-// ====================================================================================================
-void CPrintToChat(int client, char[] message, any ...)
-{
-	static char buffer[256];
-	VFormat(buffer, sizeof(buffer), message, 3);
-
-	ReplaceString(buffer, sizeof(buffer), "{default}",		"\x01");
-	ReplaceString(buffer, sizeof(buffer), "{white}",		"\x01");
-	ReplaceString(buffer, sizeof(buffer), "{cyan}",			"\x03");
-	ReplaceString(buffer, sizeof(buffer), "{lightgreen}",	"\x03");
-	ReplaceString(buffer, sizeof(buffer), "{orange}",		"\x04");
-	ReplaceString(buffer, sizeof(buffer), "{green}",		"\x04"); // Actually orange in L4D2, but replicating colors.inc behaviour
-	ReplaceString(buffer, sizeof(buffer), "{olive}",		"\x05");
-	PrintToChat(client, buffer);
-}
-
-void CPrintHintText(int client, char[] message, any ...)
-{
-	static char buffer[256];
-	VFormat(buffer, sizeof(buffer), message, 3);
-
-	ReplaceString(buffer, sizeof(buffer), "{default}",		"");
-	ReplaceString(buffer, sizeof(buffer), "{white}",		"");
-	ReplaceString(buffer, sizeof(buffer), "{cyan}",			"");
-	ReplaceString(buffer, sizeof(buffer), "{lightgreen}",	"");
-	ReplaceString(buffer, sizeof(buffer), "{orange}",		"");
-	ReplaceString(buffer, sizeof(buffer), "{green}",		""); // Actually orange in L4D2, but replicating colors.inc behaviour
-	ReplaceString(buffer, sizeof(buffer), "{olive}",		"");
-	PrintHintText(client, buffer);
+	if( failed )
+		SetFailState("Error: Cannot load the Info Editor config.");
 }
